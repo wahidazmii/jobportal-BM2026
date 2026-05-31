@@ -1,0 +1,4 @@
+# Playwright artifacts — local-only, jangan di-commit.
+test-results/
+playwright-report/
+playwright/.cache/

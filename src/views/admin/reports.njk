@@ -1,0 +1,166 @@
+{# Admin reports dashboard (task 44.2).
+   Validates: Requirements 13.1, 13.2, 13.3
+   Design: §6 Admin (GET /admin/reports — HR + Super_Admin), §16.1, §16.2
+
+   Renders the recruitment metrics dashboard at `GET /admin/reports`.
+   Variables:
+     - session       : { userId, role }
+     - filter        : { dateFrom: string|null, dateTo: string|null }
+                       — the currently-applied (sticky) filter values
+     - summary       : ReportSummary
+         .activeJobsCount            : number
+         .applicationsInRange        : number
+         .conversionAppliedToInterview : number|null  (0–1)
+         .conversionInterviewToHired   : number|null  (0–1)
+         .avgTimeToHireHours           : number|null
+         .sourceDistribution           : { source, count }[]
+     - csrfToken     : per-session CSRF token (43-char base64url)
+     - cspNonce      : nonce for any inline <script> (currently none)
+
+   Tailwind-light, mirroring `views/admin/audit/index.njk`.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin · Reports</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Reports</h1>
+      </div>
+
+      {# Filter form — GET so filters are bookmarkable / shareable. #}
+      <form method="GET" action="/admin/reports" class="mb-6 flex flex-wrap gap-3 items-end">
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">From</span>
+          <input
+            type="date"
+            name="dateFrom"
+            value="{{ filter.dateFrom }}"
+            class="border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">To</span>
+          <input
+            type="date"
+            name="dateTo"
+            value="{{ filter.dateTo }}"
+            class="border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+        <div class="flex items-center gap-2">
+          <button
+            type="submit"
+            class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+          >
+            Apply
+          </button>
+          <a href="/admin/reports" class="text-sm text-blue-600 hover:underline">Clear</a>
+        </div>
+      </form>
+
+      {# Summary cards #}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+        {# Active jobs #}
+        <div class="bg-white border border-slate-200 rounded shadow-sm p-4">
+          <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Active Jobs</p>
+          <p class="text-3xl font-bold text-slate-800">{{ summary.activeJobsCount }}</p>
+          <p class="text-xs text-slate-400 mt-1">Published postings</p>
+        </div>
+
+        {# Applications in range #}
+        <div class="bg-white border border-slate-200 rounded shadow-sm p-4">
+          <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Applications</p>
+          <p class="text-3xl font-bold text-slate-800">{{ summary.applicationsInRange }}</p>
+          <p class="text-xs text-slate-400 mt-1">In selected date range</p>
+        </div>
+
+        {# Conversion Applied → Interview #}
+        <div class="bg-white border border-slate-200 rounded shadow-sm p-4">
+          <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Applied → Interview</p>
+          {% if summary.conversionAppliedToInterview !== null %}
+            <p class="text-3xl font-bold text-slate-800">
+              {{ (summary.conversionAppliedToInterview * 100) | round(1) }}%
+            </p>
+          {% else %}
+            <p class="text-3xl font-bold text-slate-400">—</p>
+          {% endif %}
+          <p class="text-xs text-slate-400 mt-1">Conversion rate</p>
+        </div>
+
+        {# Conversion Interview → Hired #}
+        <div class="bg-white border border-slate-200 rounded shadow-sm p-4">
+          <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Interview → Hired</p>
+          {% if summary.conversionInterviewToHired !== null %}
+            <p class="text-3xl font-bold text-slate-800">
+              {{ (summary.conversionInterviewToHired * 100) | round(1) }}%
+            </p>
+          {% else %}
+            <p class="text-3xl font-bold text-slate-400">—</p>
+          {% endif %}
+          <p class="text-xs text-slate-400 mt-1">Conversion rate</p>
+        </div>
+
+      </div>
+
+      {# Avg time-to-hire #}
+      <div class="bg-white border border-slate-200 rounded shadow-sm p-4 mb-8 inline-block">
+        <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Avg Time-to-Hire</p>
+        {% if summary.avgTimeToHireHours !== null %}
+          <p class="text-2xl font-bold text-slate-800">
+            {{ (summary.avgTimeToHireHours / 24) | round(1) }} days
+            <span class="text-sm font-normal text-slate-500">({{ summary.avgTimeToHireHours | round(1) }} hrs)</span>
+          </p>
+        {% else %}
+          <p class="text-2xl font-bold text-slate-400">—</p>
+        {% endif %}
+        <p class="text-xs text-slate-400 mt-1">Applied → Hired (hired in range)</p>
+      </div>
+
+      {# Source distribution table #}
+      <h2 class="text-lg font-semibold mb-3">Application Source Distribution</h2>
+      <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden mb-8">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="px-4 py-2 text-left">Source</th>
+              <th class="px-4 py-2 text-right">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in summary.sourceDistribution %}
+              <tr class="border-t border-slate-200">
+                <td class="px-4 py-2 font-mono text-xs">{{ row.source }}</td>
+                <td class="px-4 py-2 text-right">{{ row.count }}</td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="2" class="px-4 py-8 text-center text-slate-500">
+                  No applications in this date range.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </body>
+</html>

@@ -1,0 +1,168 @@
+{# Public job list page (task 22.2).
+   Validates: Requirements 2.3, 6.1, 6.2, 6.3 (Design §4.3, §6 Public).
+
+   The form uses htmx auto-refresh per Design §4.3:
+     - hx-get      → re-fetches the route with the current form state.
+     - hx-trigger  → "change delay:300ms" so checkbox toggles AND
+                     "keyup changed delay:500ms from:input[name=keyword]"
+                     so the keyword field debounces typing.
+     - hx-target   → "#jobs-results" so only the result panel swaps.
+     - hx-swap     → "outerHTML" because the partial includes the
+                     wrapping div with the matching ID.
+     - hx-push-url → "true" to keep the address bar in sync (deep-
+                     linkable filter state).
+
+   Variables provided by `src/routes/public.ts`:
+     - locale          : 'id' | 'en'
+     - keyword         : string                         (sticky)
+     - locations       : string[]                       (selected facets)
+     - employmentTypes : EmploymentType[]               (selected facets)
+     - levels          : JobLevel[]                     (selected facets)
+     - rows            : SearchResultRow[]
+     - total           : number
+     - page            : number
+     - pageSize        : number
+     - totalPages      : number
+     - facets          : SearchFacets                   (counts per bucket)
+     - cspNonce        : string | undefined
+#}
+{% extends "layouts/public.njk" %}
+
+{% set jobsTr = {
+  id: {
+    title: 'Lowongan',
+    pageHeading: 'Lowongan',
+    keywordLabel: 'Kata kunci',
+    keywordPlaceholder: 'Misal: data analyst',
+    employmentTypeHeading: 'Tipe pekerjaan',
+    levelHeading: 'Level',
+    locationHeading: 'Lokasi',
+    submitButton: 'Cari',
+    clearButton: 'Atur ulang'
+  },
+  en: {
+    title: 'Open Positions',
+    pageHeading: 'Open Positions',
+    keywordLabel: 'Keyword',
+    keywordPlaceholder: 'e.g. data analyst',
+    employmentTypeHeading: 'Employment type',
+    levelHeading: 'Level',
+    locationHeading: 'Location',
+    submitButton: 'Search',
+    clearButton: 'Reset'
+  }
+} %}
+{% set jt = jobsTr[locale] or jobsTr.id %}
+
+{% block title %}{{ jt.title }} | PT Buana Megah{% endblock %}
+
+{# LCP optimisation (task 56.1, Design §4.3 — Req 2.10):
+   No hCaptcha on the jobs list page, so no extra preconnect needed here.
+   The layout already preloads app.css and defers htmx/Alpine.
+   Any <img> tags added to job cards in the future MUST carry loading="lazy"
+   because they are below-the-fold list items. #}
+{% block head %}{% endblock %}
+
+{% block content %}
+<section class="jobs-page max-w-6xl mx-auto px-4 py-8">
+  <h1 class="text-3xl font-semibold mb-6">{{ jt.pageHeading }}</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
+    {# ------------------------------------------------------------------ #}
+    {# Left column: filter form                                            #}
+    {# ------------------------------------------------------------------ #}
+    <aside class="filters">
+      <form method="GET"
+            action="/{{ locale }}/jobs"
+            hx-get="/{{ locale }}/jobs"
+            hx-trigger="change delay:300ms, keyup changed delay:500ms from:input[name=keyword]"
+            hx-target="#jobs-results"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            class="space-y-4">
+
+        <div class="field">
+          <label for="keyword" class="block text-sm font-medium text-slate-700 mb-1">
+            {{ jt.keywordLabel }}
+          </label>
+          <input type="search"
+                 id="keyword"
+                 name="keyword"
+                 value="{{ keyword | default('') }}"
+                 placeholder="{{ jt.keywordPlaceholder }}"
+                 class="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+        </div>
+
+        <fieldset class="field">
+          <legend class="block text-sm font-medium text-slate-700 mb-1">
+            {{ jt.employmentTypeHeading }}
+          </legend>
+          {% set selectedTypes = employmentTypes %}
+          {% for bucket in facets.employment_type %}
+            <label class="flex items-center gap-2 text-sm py-0.5">
+              <input type="checkbox"
+                     name="employment_type"
+                     value="{{ bucket.value }}"
+                     {% if bucket.value in selectedTypes %}checked{% endif %}>
+              <span>{{ bucket.value }}</span>
+              <span class="text-slate-400">({{ bucket.count }})</span>
+            </label>
+          {% endfor %}
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="block text-sm font-medium text-slate-700 mb-1">
+            {{ jt.levelHeading }}
+          </legend>
+          {% set selectedLevels = levels %}
+          {% for bucket in facets.level %}
+            <label class="flex items-center gap-2 text-sm py-0.5">
+              <input type="checkbox"
+                     name="level"
+                     value="{{ bucket.value }}"
+                     {% if bucket.value in selectedLevels %}checked{% endif %}>
+              <span>{{ bucket.value }}</span>
+              <span class="text-slate-400">({{ bucket.count }})</span>
+            </label>
+          {% endfor %}
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="block text-sm font-medium text-slate-700 mb-1">
+            {{ jt.locationHeading }}
+          </legend>
+          {% set selectedLocations = locations %}
+          {% for bucket in facets.location %}
+            <label class="flex items-center gap-2 text-sm py-0.5">
+              <input type="checkbox"
+                     name="location"
+                     value="{{ bucket.value }}"
+                     {% if bucket.value in selectedLocations %}checked{% endif %}>
+              <span>{{ bucket.value }}</span>
+              <span class="text-slate-400">({{ bucket.count }})</span>
+            </label>
+          {% endfor %}
+        </fieldset>
+
+        <div class="field flex items-center gap-2 pt-2">
+          <button type="submit"
+                  class="px-4 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700">
+            {{ jt.submitButton }}
+          </button>
+          <a href="/{{ locale }}/jobs"
+             class="text-sm text-slate-600 hover:underline">
+            {{ jt.clearButton }}
+          </a>
+        </div>
+      </form>
+    </aside>
+
+    {# ------------------------------------------------------------------ #}
+    {# Right column: results panel (htmx swap target)                     #}
+    {# ------------------------------------------------------------------ #}
+    <div class="results-panel">
+      {% include "public/_jobs-list.njk" %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,37 @@
+{# Generic post-register confirmation page (task 9.2).
+   Validates: Requirement 3.2 — Same message rendered for both newly-created
+   accounts and duplicate-email submissions, so the response cannot be used
+   to enumerate registered emails.
+
+   Inputs:
+     - locale : 'id' | 'en'
+     - email  : string  (user-entered email, already trimmed/lowercased)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Periksa Email Anda',
+    body: 'Jika data yang Anda kirim valid, kami telah mengirimkan tautan verifikasi ke alamat email Anda. Silakan cek kotak masuk (dan folder spam) untuk melanjutkan.',
+    nextHint: 'Tautan tersebut berlaku selama 24 jam.',
+    backLink: 'Kembali ke beranda'
+  },
+  en: {
+    title: 'Check Your Email',
+    body: 'If the information you submitted is valid, we have sent a verification link to your email address. Please check your inbox (and spam folder) to continue.',
+    nextHint: 'That link is valid for 24 hours.',
+    backLink: 'Back to home'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="auth-success">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.body }}</p>
+  <p><small>{{ t.nextHint }}</small></p>
+  <p><a href="/{{ locale }}/">{{ t.backLink }}</a></p>
+</section>
+{% endblock %}

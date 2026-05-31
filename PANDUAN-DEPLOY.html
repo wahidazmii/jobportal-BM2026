@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Panduan Deploy PT Buana Megah Job Portal</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; margin: 2.5cm; color: #222; line-height: 1.6; }
+  h1 { font-size: 20pt; color: #1a3c6e; border-bottom: 2px solid #1a3c6e; padding-bottom: 6px; margin-top: 0; }
+  h2 { font-size: 14pt; color: #1a3c6e; margin-top: 28px; border-left: 4px solid #1a3c6e; padding-left: 8px; }
+  h3 { font-size: 12pt; color: #2e5fa3; margin-top: 18px; }
+  h4 { font-size: 11pt; color: #444; margin-top: 14px; }
+  pre, code { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px; }
+  pre { padding: 10px 14px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; }
+  th { background: #1a3c6e; color: #fff; padding: 7px 10px; text-align: left; }
+  td { border: 1px solid #ccc; padding: 6px 10px; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  .note { background: #fff8e1; border-left: 4px solid #f9a825; padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
+  .tip  { background: #e8f5e9; border-left: 4px solid #43a047; padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
+  .warn { background: #fce4ec; border-left: 4px solid #e53935; padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
+  ul, ol { margin: 6px 0 6px 20px; }
+  li { margin-bottom: 4px; }
+  .page-break { page-break-before: always; }
+  .subtitle { font-size: 13pt; color: #555; margin-top: 4px; }
+  .toc { background: #f0f4ff; border: 1px solid #b0c4de; padding: 14px 20px; margin: 20px 0; border-radius: 4px; }
+  .toc h3 { margin-top: 0; color: #1a3c6e; }
+  .toc ol { margin: 0; }
+  .toc li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Panduan Deploy PT Buana Megah Job Portal</h1>
+<p class="subtitle">Panduan Lengkap untuk Pemula — Dari Lokal PC hingga Live di Internet</p>
+<p style="color:#888; font-size:9.5pt;">Dokumen ini dibuat otomatis dari spesifikasi proyek. Versi: 1.0 &nbsp;|&nbsp; Aplikasi: ptk-app &nbsp;|&nbsp; Stack: Node.js 22 + Fastify + MySQL + cPanel</p>
+
+<div class="toc">
+  <h3>Daftar Isi</h3>
+  <ol>
+    <li>Tahap 1 — Jalankan di Lokal PC</li>
+    <li>Tahap 2 — Beli Hosting &amp; Domain</li>
+    <li>Tahap 3 — Setup Hosting (cPanel)</li>
+    <li>Tahap 4 — Upload Kode &amp; Install</li>
+    <li>Tahap 5 — Setup Cron Jobs</li>
+    <li>Tahap 6 — Aktifkan SSL &amp; Restart</li>
+    <li>Tahap 7 — Test Akhir</li>
+    <li>Troubleshooting</li>
+    <li>Prosedur Update Kode</li>
+  </ol>
+</div>
+
+<div class="note"><strong>Catatan untuk Pemula:</strong> Ikuti tahap secara berurutan. Jangan loncat ke tahap berikutnya sebelum tahap sebelumnya berhasil. Setiap tahap ada verifikasi untuk memastikan semuanya berjalan benar.</div>
+
+
+<h2>Tahap 1 — Jalankan di Lokal PC</h2>
+<p>Sebelum deploy ke internet, pastikan aplikasi berjalan dengan baik di komputer kamu terlebih dahulu. Ini penting untuk memastikan tidak ada error sebelum masuk ke server.</p>
+
+<h3>1.1 Software yang Harus Diinstall</h3>
+<table>
+  <tr><th>Software</th><th>Versi</th><th>Link Download</th><th>Keterangan</th></tr>
+  <tr><td>Node.js</td><td>22.x LTS</td><td>nodejs.org</td><td>Runtime JavaScript untuk server</td></tr>
+  <tr><td>MySQL / XAMPP</td><td>8.0+</td><td>dev.mysql.com atau apachefriends.org</td><td>Database. XAMPP lebih mudah untuk pemula</td></tr>
+  <tr><td>Git</td><td>terbaru</td><td>git-scm.com</td><td>Version control untuk upload kode</td></tr>
+</table>
+
+<div class="tip"><strong>Tips:</strong> Jika menggunakan XAMPP, aktifkan modul <strong>MySQL</strong> saja (Apache tidak diperlukan). Akses phpMyAdmin di <code>http://localhost/phpmyadmin</code>.</div>
+
+<h3>1.2 Buat Database Lokal</h3>
+<p>Buka phpMyAdmin (<code>http://localhost/phpmyadmin</code>) atau MySQL Workbench, lalu jalankan perintah berikut:</p>
+<pre>CREATE DATABASE ptk_local CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'ptk_user'@'localhost' IDENTIFIED BY 'password123';
+GRANT ALL ON ptk_local.* TO 'ptk_user'@'localhost';
+FLUSH PRIVILEGES;</pre>
+<div class="note">Ganti <code>password123</code> dengan password yang kamu inginkan. Catat username dan password ini.</div>
+
+<h3>1.3 Jalankan Aplikasi</h3>
+<p>Buka <strong>Command Prompt</strong> atau <strong>PowerShell</strong>, masuk ke folder proyek:</p>
+<pre>cd c:\Users\DELL\Downloads\jobportalbm\ptk-app</pre>
+<p>Jalankan perintah berikut satu per satu:</p>
+<pre>npm install</pre>
+<pre>npm run vendor:js</pre>
+<pre>npm run build:assets</pre>
+
+<p>Set environment variables (di Command Prompt Windows):</p>
+<pre>set DATABASE_URL=mysql://ptk_user:password123@localhost/ptk_local
+set SESSION_SECRET=ini-harus-minimal-32-karakter-acak-ya
+set BASE_URL=http://localhost:3000
+set NODE_ENV=development
+set PORT=3000</pre>
+
+<p>Jalankan migrasi (membuat semua tabel database):</p>
+<pre>npm run migrate up</pre>
+
+<p>Jalankan server:</p>
+<pre>npm run dev</pre>
+
+<h3>1.4 Verifikasi Lokal</h3>
+<p>Buka browser, akses: <code>http://localhost:3000</code></p>
+<p>Jika muncul halaman utama portal, <strong>Tahap 1 berhasil ✓</strong></p>
+<p>Cek juga health endpoint: <code>http://localhost:3000/healthz</code> — harus muncul <code>{"status":"ok"}</code></p>
+
+
+<div class="page-break"></div>
+<h2>Tahap 2 — Beli Hosting &amp; Domain</h2>
+
+<h3>2.1 Pilih Hosting yang Support Node.js</h3>
+<div class="warn"><strong>Penting:</strong> Tidak semua shared hosting support Node.js. Pastikan hosting yang kamu beli memiliki fitur <strong>"Setup Node.js App"</strong> di cPanel.</div>
+
+<table>
+  <tr><th>Provider</th><th>Paket Minimal</th><th>Harga/bulan</th><th>Node.js</th><th>Rekomendasi</th></tr>
+  <tr><td>Niagahoster</td><td>Business</td><td>~Rp 50.000</td><td>✅ cPanel + Node.js</td><td>⭐⭐⭐⭐⭐</td></tr>
+  <tr><td>Hostinger</td><td>Premium</td><td>~Rp 30.000</td><td>✅ cPanel + Node.js</td><td>⭐⭐⭐⭐</td></tr>
+  <tr><td>IDCloudHost</td><td>Starter</td><td>~Rp 40.000</td><td>✅ cPanel + Node.js</td><td>⭐⭐⭐⭐</td></tr>
+  <tr><td>DomaiNesia</td><td>Personal</td><td>~Rp 35.000</td><td>✅ cPanel + Node.js</td><td>⭐⭐⭐⭐</td></tr>
+</table>
+
+<h3>2.2 Spesifikasi Minimum Hosting</h3>
+<ul>
+  <li>Node.js versi 22 (atau minimal 18)</li>
+  <li>MySQL 8.0+ atau MariaDB 10.6+</li>
+  <li>Storage minimal 5 GB</li>
+  <li>RAM minimal 512 MB</li>
+  <li>cPanel dengan fitur "Setup Node.js App"</li>
+</ul>
+
+<h3>2.3 Beli Domain</h3>
+<p>Beli domain di provider yang sama dengan hosting (lebih mudah karena DNS sudah otomatis terhubung).</p>
+<ul>
+  <li>Domain <code>.my.id</code> — sekitar Rp 15.000/tahun (paling murah)</li>
+  <li>Domain <code>.id</code> — sekitar Rp 150.000/tahun</li>
+  <li>Domain <code>.com</code> — sekitar Rp 150.000/tahun</li>
+</ul>
+<p>Contoh domain yang digunakan di proyek ini: <code>buanamegahcareer.my.id</code></p>
+
+<h3>2.4 Setelah Beli Hosting</h3>
+<p>Kamu akan mendapat email berisi:</p>
+<ul>
+  <li>URL cPanel (biasanya: <code>https://namadomain.com/cpanel</code> atau <code>https://server123.hosting.com:2083</code>)</li>
+  <li>Username cPanel</li>
+  <li>Password cPanel</li>
+</ul>
+<div class="tip">Simpan informasi login ini di tempat yang aman. Kamu akan sering membutuhkannya.</div>
+
+
+<div class="page-break"></div>
+<h2>Tahap 3 — Setup Hosting (cPanel)</h2>
+
+<h3>3.1 Buat Database MySQL di cPanel</h3>
+<ol>
+  <li>Login ke cPanel</li>
+  <li>Cari dan klik <strong>MySQL Databases</strong></li>
+  <li>Di bagian "Create New Database", ketik nama database: <code>ptk</code> → klik <strong>Create Database</strong><br>
+      <em>(nama lengkap akan jadi: <code>mycdmkay_ptk</code> — prefix username otomatis ditambahkan)</em></li>
+  <li>Di bagian "MySQL Users", buat user baru:<br>
+      Username: <code>ptkuser</code> &nbsp; Password: buat password kuat (minimal 12 karakter, ada huruf besar, angka, simbol)</li>
+  <li>Di bagian "Add User To Database", pilih user dan database yang baru dibuat → klik <strong>Add</strong></li>
+  <li>Centang <strong>ALL PRIVILEGES</strong> → klik <strong>Make Changes</strong></li>
+</ol>
+<div class="note"><strong>Catat informasi ini:</strong><br>
+Database name: <code>mycdmkay_ptk</code><br>
+Username: <code>mycdmkay_ptkuser</code><br>
+Password: (yang kamu buat)<br>
+Host: <code>localhost</code></div>
+
+<h3>3.2 Upload Kode ke Hosting via GitHub</h3>
+<p>Cara terbaik adalah menggunakan Git. Ikuti langkah berikut:</p>
+
+<h4>A. Buat akun GitHub (jika belum punya)</h4>
+<p>Daftar di <code>github.com</code> — gratis.</p>
+
+<h4>B. Upload kode dari PC ke GitHub</h4>
+<p>Buka Command Prompt di folder proyek:</p>
+<pre>cd c:\Users\DELL\Downloads\jobportalbm\ptk-app
+git init
+git add .
+git commit -m "initial commit"</pre>
+<p>Buat repository baru di GitHub (klik tombol "New" di github.com), lalu:</p>
+<pre>git remote add origin https://github.com/USERNAME/ptk-app.git
+git branch -M main
+git push -u origin main</pre>
+
+<h4>C. Clone repository di cPanel</h4>
+<ol>
+  <li>Login cPanel → cari <strong>Git Version Control</strong></li>
+  <li>Klik <strong>Create</strong></li>
+  <li>Isi form:<br>
+      Clone URL: <code>https://github.com/USERNAME/ptk-app.git</code><br>
+      Repository Path: <code>/home/mycdmkay/ptk-app</code></li>
+  <li>Klik <strong>Create</strong></li>
+</ol>
+
+<h3>3.3 Setup Node.js App di cPanel</h3>
+<ol>
+  <li>cPanel → cari <strong>Setup Node.js App</strong></li>
+  <li>Klik <strong>Create Application</strong></li>
+  <li>Isi form sesuai tabel berikut:</li>
+</ol>
+<table>
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>Node.js version</td><td>22</td></tr>
+  <tr><td>Application mode</td><td>Production</td></tr>
+  <tr><td>Application root</td><td>/home/mycdmkay/ptk-app</td></tr>
+  <tr><td>Application URL</td><td>buanamegahcareer.my.id</td></tr>
+  <tr><td>Application startup file</td><td>artifacts/api-server/dist/index.mjs</td></tr>
+</table>
+<ol start="4">
+  <li>Klik <strong>Create</strong></li>
+</ol>
+
+
+<h3>3.4 Set Environment Variables</h3>
+<p>Masih di halaman Setup Node.js App, scroll ke bawah ke bagian <strong>Environment Variables</strong>. Tambahkan variabel berikut satu per satu dengan klik <strong>Add Variable</strong>:</p>
+<table>
+  <tr><th>Variable Name</th><th>Value / Keterangan</th></tr>
+  <tr><td>DATABASE_URL</td><td>mysql://mycdmkay_ptkuser:PASSWORD@localhost/mycdmkay_ptk</td></tr>
+  <tr><td>SESSION_SECRET</td><td>Generate di Terminal cPanel: <code>openssl rand -hex 32</code></td></tr>
+  <tr><td>SMTP_HOST</td><td>smtp.gmail.com (atau provider email kamu)</td></tr>
+  <tr><td>SMTP_PORT</td><td>587</td></tr>
+  <tr><td>SMTP_USER</td><td>email@gmail.com</td></tr>
+  <tr><td>SMTP_PASS</td><td>App Password Gmail (bukan password biasa)</td></tr>
+  <tr><td>CAPTCHA_SITE</td><td>Dari dashboard hcaptcha.com (bisa diisi dummy dulu untuk testing)</td></tr>
+  <tr><td>CAPTCHA_SECRET</td><td>Dari dashboard hcaptcha.com</td></tr>
+  <tr><td>BASE_URL</td><td>https://buanamegahcareer.my.id</td></tr>
+  <tr><td>NODE_ENV</td><td>production</td></tr>
+  <tr><td>LOG_LEVEL</td><td>info</td></tr>
+</table>
+
+<div class="tip"><strong>Cara generate SESSION_SECRET:</strong><br>
+Di cPanel → Terminal, ketik: <code>openssl rand -hex 32</code><br>
+Copy hasilnya (64 karakter hex) dan paste sebagai value SESSION_SECRET.</div>
+
+<div class="note"><strong>Cara buat App Password Gmail:</strong><br>
+1. Login Gmail → Kelola Akun Google → Keamanan<br>
+2. Aktifkan Verifikasi 2 Langkah (jika belum)<br>
+3. Cari "Sandi Aplikasi" → buat sandi baru untuk "Mail"<br>
+4. Copy 16 karakter yang muncul → paste sebagai SMTP_PASS</div>
+
+
+<div class="page-break"></div>
+<h2>Tahap 4 — Install &amp; Build di Server</h2>
+<p>Buka <strong>Terminal</strong> di cPanel (cari menu "Terminal" di cPanel). Jalankan perintah berikut satu per satu:</p>
+
+<h3>4.1 Masuk ke Folder Aplikasi</h3>
+<pre>cd ~/ptk-app</pre>
+
+<h3>4.2 Install Dependencies</h3>
+<pre>npm ci --omit=dev</pre>
+<p>Proses ini mengunduh semua library yang dibutuhkan. Tunggu sampai selesai (bisa 2-5 menit).</p>
+
+<h3>4.3 Download Library Frontend</h3>
+<pre>npm run vendor:js</pre>
+<p>Mengunduh htmx, Alpine.js, dan Sortable.js.</p>
+
+<h3>4.4 Build Aplikasi</h3>
+<pre>npm run build</pre>
+<p>Mengkompilasi TypeScript menjadi JavaScript. Hasil ada di folder <code>artifacts/api-server/dist/</code>.</p>
+
+<h3>4.5 Jalankan Migrasi Database</h3>
+<pre>node tools/migrate.mjs up</pre>
+<p>Membuat semua tabel di database. Harus berhasil tanpa error.</p>
+
+<div class="tip"><strong>Verifikasi:</strong> Buka phpMyAdmin di cPanel → pilih database <code>mycdmkay_ptk</code> → pastikan ada banyak tabel (users, sessions, job_postings, applications, dll).</div>
+
+<h3>4.6 Buat Folder Log</h3>
+<pre>mkdir -p ~/logs</pre>
+
+<h3>4.7 Restart Aplikasi</h3>
+<pre>mkdir -p ~/ptk-app/tmp && touch ~/ptk-app/tmp/restart.txt</pre>
+<p>Atau klik tombol <strong>Restart</strong> di halaman Setup Node.js App.</p>
+
+
+<div class="page-break"></div>
+<h2>Tahap 5 — Setup Cron Jobs</h2>
+<p>Cron jobs adalah tugas terjadwal yang berjalan otomatis di background (kirim email, backup, dll).</p>
+<p>cPanel → <strong>Cron Jobs</strong> → tambahkan 7 entri berikut. Untuk setiap entri, isi kolom "Command" dengan perintah di bawah:</p>
+
+<div class="note">Ganti <code>mycdmkay</code> dengan username cPanel kamu yang sebenarnya di setiap perintah.</div>
+
+<h3>Cron 1 — Mail Flush (setiap 2 menit)</h3>
+<p>Minute: <code>*/2</code> &nbsp; Hour: <code>*</code> &nbsp; Day: <code>*</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>*</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs mail-flush >> /home/mycdmkay/logs/cron-mail.log 2>&amp;1</pre>
+
+<h3>Cron 2 — Alert Digest (setiap 15 menit)</h3>
+<p>Minute: <code>*/15</code> &nbsp; Hour: <code>*</code> &nbsp; Day: <code>*</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>*</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs alert-digest >> /home/mycdmkay/logs/cron-alert.log 2>&amp;1</pre>
+
+<h3>Cron 3 — Session GC (setiap jam)</h3>
+<p>Minute: <code>5</code> &nbsp; Hour: <code>*</code> &nbsp; Day: <code>*</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>*</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs session-gc >> /home/mycdmkay/logs/cron-gc.log 2>&amp;1</pre>
+
+<h3>Cron 4 — Backup Harian (jam 02:00)</h3>
+<p>Minute: <code>0</code> &nbsp; Hour: <code>2</code> &nbsp; Day: <code>*</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>*</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs backup-daily >> /home/mycdmkay/logs/cron-backup.log 2>&amp;1</pre>
+
+<h3>Cron 5 — Search Reindex (Minggu jam 03:30)</h3>
+<p>Minute: <code>30</code> &nbsp; Hour: <code>3</code> &nbsp; Day: <code>*</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>0</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs search-reindex >> /home/mycdmkay/logs/cron-search.log 2>&amp;1</pre>
+
+<h3>Cron 6 — File Archive (tanggal 1 jam 04:00)</h3>
+<p>Minute: <code>0</code> &nbsp; Hour: <code>4</code> &nbsp; Day: <code>1</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>*</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs file-archive >> /home/mycdmkay/logs/cron-arch.log 2>&amp;1</pre>
+
+<h3>Cron 7 — Audit Archive (tanggal 2 jam 04:30)</h3>
+<p>Minute: <code>30</code> &nbsp; Hour: <code>4</code> &nbsp; Day: <code>2</code> &nbsp; Month: <code>*</code> &nbsp; Weekday: <code>*</code></p>
+<pre>/home/mycdmkay/nodevenv/ptk-app/22/bin/node /home/mycdmkay/ptk-app/artifacts/api-server/dist/crons/index.mjs audit-archive >> /home/mycdmkay/logs/cron-audit.log 2>&amp;1</pre>
+
+
+<div class="page-break"></div>
+<h2>Tahap 6 — Aktifkan SSL &amp; Restart</h2>
+
+<h3>6.1 Aktifkan SSL (HTTPS)</h3>
+<ol>
+  <li>Login cPanel → cari <strong>SSL/TLS Status</strong></li>
+  <li>Klik tombol <strong>Run AutoSSL</strong></li>
+  <li>Tunggu beberapa menit sampai domain kamu menampilkan ikon gembok hijau ✅</li>
+</ol>
+<div class="note">SSL gratis dari Let's Encrypt akan otomatis dipasang. Ini membuat website kamu bisa diakses dengan <code>https://</code> yang aman.</div>
+
+<h3>6.2 Restart Aplikasi</h3>
+<p>Di Terminal cPanel:</p>
+<pre>touch ~/ptk-app/tmp/restart.txt</pre>
+<p>Atau di halaman Setup Node.js App → klik tombol <strong>Restart</strong>.</p>
+
+<h3>6.3 Pasang .htaccess</h3>
+<p>Di Terminal cPanel:</p>
+<pre>cd ~/ptk-app && npm run deploy:htaccess</pre>
+<p>Ini menyalin konfigurasi web server ke <code>~/public_html/.htaccess</code> untuk redirect HTTP → HTTPS dan optimasi performa.</p>
+
+<h2>Tahap 7 — Test Akhir</h2>
+
+<h3>7.1 Cek Health Endpoint</h3>
+<p>Di Terminal cPanel atau browser:</p>
+<pre>curl https://buanamegahcareer.my.id/healthz</pre>
+<p>Harus muncul: <code>{"status":"ok"}</code></p>
+
+<h3>7.2 Cek Halaman Utama</h3>
+<p>Buka browser, akses: <code>https://buanamegahcareer.my.id</code></p>
+<p>Harus muncul halaman utama portal lowongan kerja PT Buana Megah.</p>
+
+<h3>7.3 Test Fungsional Manual</h3>
+<table>
+  <tr><th>Test</th><th>Langkah</th><th>Hasil yang Diharapkan</th></tr>
+  <tr><td>Registrasi</td><td>Buka /id/register, isi form, submit</td><td>Email verifikasi terkirim</td></tr>
+  <tr><td>Login</td><td>Buka /id/login, masukkan kredensial</td><td>Redirect ke dashboard</td></tr>
+  <tr><td>Lihat Lowongan</td><td>Buka /id/jobs</td><td>Daftar lowongan muncul</td></tr>
+  <tr><td>Admin Login</td><td>Login dengan akun HR/Super_Admin</td><td>Redirect ke /admin</td></tr>
+  <tr><td>Cron Mail</td><td>Tunggu 2 menit, cek log</td><td>Log tidak ada error</td></tr>
+</table>
+<pre>tail -f ~/logs/cron-mail.log</pre>
+
+<div class="tip"><strong>Deploy berhasil jika:</strong> Health check OK, halaman utama muncul, dan tidak ada error di log.</div>
+
+
+<div class="page-break"></div>
+<h2>Troubleshooting — Masalah Umum</h2>
+
+<table>
+  <tr><th>Error / Gejala</th><th>Penyebab</th><th>Solusi</th></tr>
+  <tr>
+    <td>Health check mengembalikan 503</td>
+    <td>DATABASE_URL salah atau database belum dibuat</td>
+    <td>Cek nama database, username, password di env vars. Pastikan migrasi sudah dijalankan.</td>
+  </tr>
+  <tr>
+    <td>Halaman tidak muncul / 502 Bad Gateway</td>
+    <td>Startup file salah atau build belum dijalankan</td>
+    <td>Pastikan <code>npm run build</code> berhasil. Cek startup file: <code>artifacts/api-server/dist/index.mjs</code></td>
+  </tr>
+  <tr>
+    <td>npm run build gagal</td>
+    <td>Node.js versi salah atau dependency belum install</td>
+    <td>Pastikan Node.js 22 aktif. Jalankan <code>npm ci --omit=dev</code> terlebih dahulu.</td>
+  </tr>
+  <tr>
+    <td>Email tidak terkirim</td>
+    <td>SMTP settings salah</td>
+    <td>Cek SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS. Untuk Gmail, gunakan App Password.</td>
+  </tr>
+  <tr>
+    <td>SSL tidak aktif / masih HTTP</td>
+    <td>AutoSSL belum selesai atau domain belum propagasi</td>
+    <td>Tunggu 24 jam untuk propagasi DNS. Jalankan ulang AutoSSL di cPanel.</td>
+  </tr>
+  <tr>
+    <td>Cron tidak berjalan</td>
+    <td>Path Node.js salah</td>
+    <td>Cek path Node.js: di Terminal ketik <code>which node</code> atau cek di Setup Node.js App.</td>
+  </tr>
+  <tr>
+    <td>Error "Missing required environment variable"</td>
+    <td>Env var belum diset di cPanel</td>
+    <td>Buka Setup Node.js App → Environment Variables → tambahkan yang kurang.</td>
+  </tr>
+</table>
+
+<h3>Cara Cek Log Error</h3>
+<p>Di Terminal cPanel:</p>
+<pre># Log aplikasi utama
+tail -100 ~/logs/error.log
+
+# Log cron mail
+tail -50 ~/logs/cron-mail.log
+
+# Log cron backup
+tail -50 ~/logs/cron-backup.log</pre>
+
+<p>Di cPanel → <strong>Errors</strong> (menu di bagian Metrics) untuk melihat error Apache/Passenger.</p>
+
+<div class="page-break"></div>
+<h2>Prosedur Update Kode</h2>
+<p>Setiap kali ada perubahan kode, ikuti langkah berikut:</p>
+
+<h3>Di PC Lokal (setelah edit kode)</h3>
+<pre>cd c:\Users\DELL\Downloads\jobportalbm\ptk-app
+git add .
+git commit -m "deskripsi perubahan"
+git push origin main</pre>
+
+<h3>Di Server (cPanel Terminal)</h3>
+<pre>cd ~/ptk-app
+
+# Pull perubahan terbaru
+git pull
+
+# Install dependency baru (jika ada)
+npm ci --omit=dev
+
+# Build ulang
+npm run build
+
+# Jalankan migrasi baru (jika ada)
+node tools/migrate.mjs up
+
+# Restart aplikasi
+touch tmp/restart.txt</pre>
+
+<div class="tip"><strong>Tips:</strong> Selalu jalankan <code>node tools/migrate.mjs up</code> setelah update kode, karena mungkin ada perubahan struktur database. Perintah ini aman dijalankan berulang kali — hanya menjalankan migrasi yang belum pernah dijalankan.</div>
+
+<h2>Informasi Akun Default</h2>
+<div class="warn"><strong>Penting:</strong> Setelah deploy, segera buat akun Super_Admin pertama langsung di database. Tidak ada akun default yang dibuat otomatis.</div>
+<p>Di Terminal cPanel, jalankan perintah MySQL untuk membuat akun Super_Admin pertama:</p>
+<pre>mysql -u mycdmkay_ptkuser -p mycdmkay_ptk</pre>
+<p>Kemudian di prompt MySQL (ganti email dan hash password sesuai kebutuhan):</p>
+<pre>-- Generate password hash dulu di Node.js:
+-- node -e "const b=require('bcrypt'); b.hash('PasswordKuat123!',12).then(h=>console.log(h))"
+-- Copy hasilnya, paste di bawah
+
+INSERT INTO users (uuid, email, password_hash, role, status, email_verified_at)
+VALUES (
+  REPLACE(UUID(),'-',''),
+  'admin@buanamegah.com',
+  '$2b$12$HASH_DARI_BCRYPT_DI_ATAS',
+  'Super_Admin',
+  'active',
+  NOW()
+);</pre>
+
+
+<div class="page-break"></div>
+<h2>Ringkasan Checklist Deploy</h2>
+<p>Gunakan checklist ini untuk memastikan semua langkah sudah selesai:</p>
+
+<table>
+  <tr><th>No</th><th>Langkah</th><th>Status</th></tr>
+  <tr><td>1</td><td>Node.js 22 terinstall di PC</td><td>☐</td></tr>
+  <tr><td>2</td><td>MySQL terinstall di PC</td><td>☐</td></tr>
+  <tr><td>3</td><td>Aplikasi berjalan di localhost:3000</td><td>☐</td></tr>
+  <tr><td>4</td><td>Hosting dibeli (support Node.js + cPanel)</td><td>☐</td></tr>
+  <tr><td>5</td><td>Domain dibeli dan terhubung ke hosting</td><td>☐</td></tr>
+  <tr><td>6</td><td>Database MySQL dibuat di cPanel</td><td>☐</td></tr>
+  <tr><td>7</td><td>Kode diupload ke GitHub</td><td>☐</td></tr>
+  <tr><td>8</td><td>Repository di-clone di cPanel</td><td>☐</td></tr>
+  <tr><td>9</td><td>Node.js App dibuat di cPanel</td><td>☐</td></tr>
+  <tr><td>10</td><td>Semua environment variables diset</td><td>☐</td></tr>
+  <tr><td>11</td><td>npm ci --omit=dev berhasil</td><td>☐</td></tr>
+  <tr><td>12</td><td>npm run build berhasil</td><td>☐</td></tr>
+  <tr><td>13</td><td>Migrasi database berhasil</td><td>☐</td></tr>
+  <tr><td>14</td><td>7 cron jobs ditambahkan</td><td>☐</td></tr>
+  <tr><td>15</td><td>AutoSSL aktif (HTTPS)</td><td>☐</td></tr>
+  <tr><td>16</td><td>Aplikasi di-restart</td><td>☐</td></tr>
+  <tr><td>17</td><td>Health check mengembalikan {"status":"ok"}</td><td>☐</td></tr>
+  <tr><td>18</td><td>Halaman utama muncul di browser</td><td>☐</td></tr>
+  <tr><td>19</td><td>Akun Super_Admin pertama dibuat</td><td>☐</td></tr>
+  <tr><td>20</td><td>Test login dan fitur dasar berhasil</td><td>☐</td></tr>
+</table>
+
+<br>
+<hr>
+<p style="text-align:center; color:#888; font-size:9pt;">
+  Panduan ini dibuat untuk proyek PT Buana Megah Job Portal (ptk-app)<br>
+  Stack: Node.js 22 + TypeScript + Fastify + Nunjucks + MySQL + cPanel<br>
+  Untuk pertanyaan teknis, hubungi developer proyek.
+</p>
+
+</body>
+</html>

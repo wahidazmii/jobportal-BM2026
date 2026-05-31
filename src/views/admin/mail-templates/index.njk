@@ -1,0 +1,98 @@
+{# Admin mail-templates index (task 36.2).
+   Validates: Requirements 10.7, 12.1
+   Design: §6 Admin, §15 (audit)
+
+   Renders the mail-template list at `GET /admin/mail-templates`. Variables:
+     - session       : { userId, role, canWrite }
+     - templates     : MailTemplateRecord[]  (ordered key, locale)
+     - saved         : true when ?saved=1 (post-redirect-get flash)
+     - csrfToken     : per-session CSRF token (43-char base64url)
+     - cspNonce      : nonce for any inline <script> (currently none)
+
+   The view follows the same Tailwind-light vocabulary used by
+   `views/admin/jobs/index.njk`; the admin theme proper lands in Phase 8.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin · Mail templates</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Mail templates</h1>
+        {% if session.canWrite %}
+          <a
+            href="/admin/mail-templates/new"
+            class="inline-flex items-center px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+          >
+            New template
+          </a>
+        {% endif %}
+      </div>
+
+      {% if saved %}
+        <div class="mb-4 p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          Saved.
+        </div>
+      {% endif %}
+
+      <p class="text-sm text-slate-500 mb-4">
+        Per-locale overrides of the built-in email templates. An edit here
+        takes precedence over the file-system default for that key + locale.
+      </p>
+
+      <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="px-3 py-2 text-left">Key</th>
+              <th class="px-3 py-2 text-left">Locale</th>
+              <th class="px-3 py-2 text-left">Subject</th>
+              <th class="px-3 py-2 text-left">Updated</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in templates %}
+              <tr class="border-t border-slate-200">
+                <td class="px-3 py-2 font-mono text-xs">{{ t.key }}</td>
+                <td class="px-3 py-2 uppercase">{{ t.locale }}</td>
+                <td class="px-3 py-2">{{ t.subject }}</td>
+                <td class="px-3 py-2 text-slate-500">
+                  {% if t.updated_at %}{{ t.updated_at.toISOString().slice(0,10) }}{% endif %}
+                </td>
+                <td class="px-3 py-2 text-right">
+                  <a
+                    href="/admin/mail-templates/{{ t.key }}/{{ t.locale }}"
+                    class="text-blue-600 hover:underline"
+                  >Edit</a>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="5" class="px-3 py-8 text-center text-slate-500">
+                  No mail-template overrides yet. The built-in defaults are in use.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </body>
+</html>

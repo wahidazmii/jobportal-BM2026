@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Undangan — PT Buana Megah</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
+    <div style="max-width:600px;margin:0 auto;padding:24px;">
+      <h1 style="font-size:20px;margin:0 0 16px;">Anda diundang ke Admin Console</h1>
+      <p style="font-size:14px;line-height:1.5;margin:0 0 16px;">
+        Anda telah diundang untuk bergabung sebagai pengguna internal PT Buana Megah
+        dengan peran <strong>{{ role }}</strong>.
+      </p>
+      <p style="font-size:14px;line-height:1.5;margin:0 0 20px;">
+        Klik tombol di bawah untuk membuat kata sandi dan mengaktifkan akun Anda.
+        Tautan undangan ini hanya berlaku selama {{ expires_in_days }} hari dan
+        hanya dapat digunakan satu kali.
+      </p>
+
+      <p style="margin:0 0 24px;">
+        <a
+          href="{{ accept_url }}"
+          style="display:inline-block;padding:12px 20px;background:#2563eb;color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none;border-radius:6px;"
+        >Terima undangan</a>
+      </p>
+
+      <p style="font-size:12px;color:#7b8794;line-height:1.5;margin:0 0 8px;">
+        Jika tombol tidak berfungsi, salin dan tempel tautan berikut ke browser Anda:
+      </p>
+      <p style="font-size:12px;color:#52606d;line-height:1.5;word-break:break-all;margin:0 0 24px;">
+        {{ accept_url }}
+      </p>
+
+      <p style="font-size:12px;color:#7b8794;line-height:1.5;margin:24px 0 0;">
+        Jika Anda tidak mengenali undangan ini, abaikan email ini — akun tidak akan
+        aktif sampai tautan di atas digunakan.
+      </p>
+    </div>
+  </body>
+</html>

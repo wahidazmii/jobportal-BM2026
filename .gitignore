@@ -1,0 +1,11 @@
+node_modules/
+artifacts/
+*.log
+.DS_Store
+.idea/
+.vscode/
+coverage/
+playwright-report/
+test-results/
+src/public/css/app.css
+src/public/js/sri-manifest.json

@@ -1,0 +1,101 @@
+{# Applicant login form (task 10.1).
+   Validates: Requirements 3.5, 3.6, 3.7 (Design §6 Auth, §8.3).
+
+   The view receives:
+     - locale       : 'id' | 'en'
+     - form         : { email }                      (sticky email value)
+     - errors       : Record<string, string[]>       (field-level errors)
+     - generalError : string | null                  (top-level message —
+                                                      generic "invalid email
+                                                      or password" or
+                                                      lockout copy)
+     - retryAfterSec: number | null                  (seconds until the
+                                                      lockout window slides;
+                                                      only set on the
+                                                      locked-out branch)
+     - cspNonce     : string                         (for inline scripts)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Masuk ke Akun',
+    intro: 'Masuk untuk melanjutkan lamaran dan memantau status aplikasi.',
+    email: 'Email',
+    password: 'Kata Sandi',
+    submit: 'Masuk',
+    forgot: 'Lupa kata sandi?',
+    needAccount: 'Belum punya akun?',
+    registerLink: 'Daftar di sini',
+    invalidCredentials: 'Email atau kata sandi salah.',
+    lockedOut: 'Terlalu banyak percobaan gagal. Coba lagi nanti.'
+  },
+  en: {
+    title: 'Sign In',
+    intro: 'Sign in to continue your applications and track status.',
+    email: 'Email',
+    password: 'Password',
+    submit: 'Sign in',
+    forgot: 'Forgot your password?',
+    needAccount: 'Need an account?',
+    registerLink: 'Register here',
+    invalidCredentials: 'Invalid email or password.',
+    lockedOut: 'Too many failed attempts. Please try again later.'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="auth-form">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.intro }}</p>
+
+  {% if generalError %}
+    <div class="alert alert-error" role="alert">{{ generalError }}</div>
+  {% endif %}
+
+  <form method="post" action="/{{ locale }}/login" novalidate>
+    <div class="field">
+      <label for="email">{{ t.email }}</label>
+      <input type="email"
+             id="email"
+             name="email"
+             autocomplete="email"
+             required
+             maxlength="254"
+             value="{{ form.email | default('') }}">
+      {% if errors.email %}
+        <ul class="field-errors">
+          {% for msg in errors.email %}<li>{{ msg }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label for="password">{{ t.password }}</label>
+      <input type="password"
+             id="password"
+             name="password"
+             autocomplete="current-password"
+             required
+             maxlength="128">
+      {% if errors.password %}
+        <ul class="field-errors">
+          {% for msg in errors.password %}<li>{{ msg }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+  </form>
+
+  <p class="auth-form-footer">
+    <a href="/{{ locale }}/password/reset">{{ t.forgot }}</a>
+  </p>
+  <p class="auth-form-footer">
+    {{ t.needAccount }} <a href="/{{ locale }}/register">{{ t.registerLink }}</a>
+  </p>
+</section>
+{% endblock %}

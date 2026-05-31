@@ -1,0 +1,41 @@
+{# Applicant_Area 404 page (task 27.1).
+   Validates: Requirements 5.6, 5.7
+
+   Rendered when an applicant tries to load a resource (e.g. an
+   application detail) that either does not exist or belongs to
+   another applicant. Both branches collapse to the same view so the
+   API never confirms the existence of another user's row.
+
+   Inputs:
+     - locale     : 'id' | 'en'
+     - cspNonce   : string  (passed through from the route)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Halaman Tidak Ditemukan',
+    body: 'Halaman yang Anda cari tidak tersedia.',
+    back: 'Kembali ke daftar lamaran'
+  },
+  en: {
+    title: 'Page Not Found',
+    body: 'The page you were looking for is not available.',
+    back: 'Back to applications'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-not-found">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.body }}</p>
+  <p>
+    <a class="btn btn-link" href="/{{ locale }}/me/applications">
+      {{ t.back }}
+    </a>
+  </p>
+</section>
+{% endblock %}

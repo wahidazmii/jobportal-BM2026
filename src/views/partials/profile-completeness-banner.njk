@@ -1,0 +1,109 @@
+{# Profile completeness banner (task 18.1).
+   Validates: Requirements 4.9, 4.10
+   Design: §6 Applicant_Area
+
+   Renders a reminder while the applicant's profile completeness is
+   below 80% (the threshold required to apply per Req 5.1, 4.10). The
+   parent template includes this partial and passes through the result
+   of `computeCompleteness(...)` from
+   `src/modules/applicant/completeness.ts`:
+
+     {% include "partials/profile-completeness-banner.njk" %}
+
+   Inputs (resolved from the parent template's locals):
+     - locale       : 'id' | 'en'
+     - percentage   : number   (0..100, integer)
+     - missingFields: string[] (slot keys from MANDATORY_SLOTS)
+
+   The banner is a no-op when `percentage` is missing or ≥ 80, which
+   keeps the partial drop-in safe for views where completeness is not
+   yet computed.
+
+   i18n strings are inlined here following the pattern used by the auth
+   templates (e.g. `views/public/register.njk`). Task 48.1 will migrate
+   templates to the shared i18n catalog.
+#}
+
+{% if percentage is defined and percentage !== null and percentage < 80 %}
+
+  {% set bannerTr = {
+    id: {
+      title: 'Lengkapi profil Anda',
+      progress: 'Profil Anda terisi',
+      percentSuffix: '%',
+      cta: 'Bagian yang masih kosong:',
+      ctaLink: 'Lengkapi sekarang',
+      labels: {
+        full_name: 'Nama lengkap',
+        date_of_birth: 'Tanggal lahir',
+        phone: 'Nomor telepon',
+        address: 'Alamat',
+        city: 'Kota',
+        province: 'Provinsi',
+        country: 'Negara',
+        summary: 'Ringkasan profil',
+        hasEducation: 'Riwayat pendidikan',
+        hasExperience: 'Pengalaman kerja',
+        hasActiveCv: 'CV aktif (PDF/DOC/DOCX)'
+      }
+    },
+    en: {
+      title: 'Complete your profile',
+      progress: 'Profile completion',
+      percentSuffix: '%',
+      cta: 'Still missing:',
+      ctaLink: 'Complete now',
+      labels: {
+        full_name: 'Full name',
+        date_of_birth: 'Date of birth',
+        phone: 'Phone number',
+        address: 'Address',
+        city: 'City',
+        province: 'Province',
+        country: 'Country',
+        summary: 'Profile summary',
+        hasEducation: 'Education history',
+        hasExperience: 'Work experience',
+        hasActiveCv: 'Active CV (PDF/DOC/DOCX)'
+      }
+    }
+  } %}
+  {% set tBanner = bannerTr[locale] or bannerTr.id %}
+
+  <aside
+    class="profile-completeness-banner"
+    role="status"
+    aria-live="polite"
+    data-completeness-percent="{{ percentage }}"
+  >
+    <h2 class="profile-completeness-banner__title">{{ tBanner.title }}</h2>
+
+    <p class="profile-completeness-banner__progress">
+      {{ tBanner.progress }}:
+      <strong>{{ percentage }}{{ tBanner.percentSuffix }}</strong>
+    </p>
+
+    <progress
+      class="profile-completeness-banner__bar"
+      max="100"
+      value="{{ percentage }}"
+      aria-label="{{ tBanner.progress }}"
+    >{{ percentage }}{{ tBanner.percentSuffix }}</progress>
+
+    {% if missingFields and missingFields.length > 0 %}
+      <p class="profile-completeness-banner__cta">{{ tBanner.cta }}</p>
+      <ul class="profile-completeness-banner__missing">
+        {% for item in missingFields %}
+          <li>{{ tBanner.labels[item] or item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <p class="profile-completeness-banner__action">
+      <a class="btn btn-primary" href="/{{ locale }}/me/profile">
+        {{ tBanner.ctaLink }}
+      </a>
+    </p>
+  </aside>
+
+{% endif %}

@@ -1,0 +1,38 @@
+{# Generic verification-resend confirmation page (task 9.3).
+   Validates: Requirement 3.4 — Same message rendered whether or not a
+   pending account exists for the submitted email, so the response
+   cannot be used to enumerate registered or pending accounts.
+
+   Inputs:
+     - locale  : 'id' | 'en'
+     - email   : string  (submitted email, already trimmed/lowercased)
+     - cspNonce: string
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Periksa Email Anda',
+    body: 'Jika ada akun yang masih menunggu verifikasi untuk alamat email tersebut, kami telah mengirim ulang tautan verifikasi. Silakan cek kotak masuk dan folder spam Anda.',
+    nextHint: 'Tautan tersebut berlaku selama 24 jam.',
+    backLink: 'Kembali ke beranda'
+  },
+  en: {
+    title: 'Check Your Email',
+    body: 'If a pending account exists for that email, we have resent the verification link. Please check your inbox and spam folder.',
+    nextHint: 'That link is valid for 24 hours.',
+    backLink: 'Back to home'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="auth-success">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.body }}</p>
+  <p><small>{{ t.nextHint }}</small></p>
+  <p><a href="/{{ locale }}/">{{ t.backLink }}</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,150 @@
+{# Admin job clone form (task 21.3 — Req 9.5).
+   Validates: Requirements 9.5, 11.4
+
+   Variables:
+     - session    : { userId, role, canWrite }
+     - job        : JobPostingDetail (the source row)
+     - values     : { slug }   (sticky after a failed POST)
+     - errors     : Record<string, string[]>
+     - generalError : string or null
+     - csrfToken  : per-session CSRF token
+     - cspNonce   : optional inline-script nonce
+
+   The clone flow lets HR/Super_Admin spin up a fresh Draft prefilled
+   with every field from the source EXCEPT slug, status, and
+   `published_at` (per Req 9.5). The form only collects the new slug;
+   the source-job preview block below confirms what will be carried
+   over.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Clone job · {{ job.slug }}</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin/jobs/{{ job.id }}" class="font-semibold">← Back to job</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-6">
+      <h1 class="text-2xl font-semibold mb-2">Clone job</h1>
+      <p class="text-sm text-slate-600 mb-4">
+        A new Draft will be created with the same content as the source
+        below. Only the slug changes.
+      </p>
+
+      {% if generalError %}
+        <div class="mb-4 p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+          {{ generalError }}
+        </div>
+      {% endif %}
+
+      <form method="POST" action="/admin/jobs/{{ job.id }}/clone" class="space-y-4">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="slug">
+            New slug
+          </label>
+          <input
+            type="text"
+            id="slug"
+            name="slug"
+            value="{{ values.slug }}"
+            class="w-full border border-slate-300 rounded px-2 py-1 font-mono text-sm"
+            placeholder="senior-data-engineer-2"
+            autocomplete="off"
+            required
+          >
+          {% if errors.slug %}
+            <p class="text-xs text-rose-700 mt-1">{{ errors.slug[0] }}</p>
+          {% else %}
+            <p class="text-xs text-slate-500 mt-1">
+              kebab-case, must be unique across all jobs.
+            </p>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="submit"
+            class="px-4 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+          >
+            Create clone
+          </button>
+          <a href="/admin/jobs/{{ job.id }}" class="text-sm text-slate-600 hover:underline">Cancel</a>
+        </div>
+      </form>
+
+      {# ----- Source preview ------------------------------------- #}
+      <section class="mt-8 bg-white border border-slate-200 rounded p-4">
+        <header class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">Source job</h2>
+          <span class="inline-block px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-xs">
+            Draft (clone)
+          </span>
+        </header>
+
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt class="text-slate-500">Source slug</dt>
+            <dd class="font-mono">{{ job.slug }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Source status</dt>
+            <dd>{{ job.status }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Department id</dt>
+            <dd>{{ job.department_id or '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Location</dt>
+            <dd>{{ job.location }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Employment type</dt>
+            <dd>{{ job.employment_type }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Level</dt>
+            <dd>{{ job.level }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Salary</dt>
+            <dd>
+              {% if job.salary_min or job.salary_max %}
+                {{ job.salary_min or '—' }} – {{ job.salary_max or '—' }}
+                {{ job.salary_currency or '' }}
+              {% else %}—{% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Application deadline</dt>
+            <dd>{{ job.application_deadline or '—' }}</dd>
+          </div>
+        </dl>
+
+        <h3 class="mt-4 text-sm font-medium text-slate-700">Translations</h3>
+        <ul class="text-sm space-y-1">
+          {% if job.translations.id %}
+            <li><span class="text-slate-500">id:</span> {{ job.translations.id.title }}</li>
+          {% endif %}
+          {% if job.translations.en %}
+            <li><span class="text-slate-500">en:</span> {{ job.translations.en.title }}</li>
+          {% endif %}
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

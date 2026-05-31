@@ -1,0 +1,71 @@
+{# Public about page (task 22.4).
+   Validates: Requirements 2.2, 17.2 (Design §6 Public_Site).
+
+   Variables provided by `src/routes/public.ts`:
+     - locale   : 'id' | 'en'           (validated upstream)
+     - cspNonce : string | undefined    (CSP nonce — no inline scripts here)
+
+   The copy below is a two-paragraph placeholder so the route is
+   wireable end-to-end ahead of the marketing pass. The polished
+   description, values list, locations, and contact block (Req 2.2)
+   land with the i18n module (task 48.x), which will source the
+   strings from `src/locales/{id,en}.json` instead of inlining them in
+   the template.
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Tentang PT Buana Megah',
+    intro:
+      'PT Buana Megah adalah perusahaan yang bergerak di sektor energi dan infrastruktur, ' +
+      'dengan komitmen membangun proyek-proyek strategis di seluruh Indonesia. Kami mengutamakan ' +
+      'keselamatan kerja, integritas, dan pengembangan talenta lokal.',
+    body:
+      'Tim kami terdiri dari profesional yang berpengalaman di bidang teknik, operasi, dan ' +
+      'pendukung bisnis. Kami percaya bahwa pertumbuhan perusahaan berjalan seiring dengan ' +
+      'pertumbuhan setiap individu di dalamnya — itulah sebabnya kami berinvestasi pada pelatihan ' +
+      'berkelanjutan, jenjang karier yang jelas, dan lingkungan kerja yang inklusif.',
+    backToJobs: 'Lihat Lowongan',
+    backToHome: 'Kembali ke Beranda'
+  },
+  en: {
+    title: 'About PT Buana Megah',
+    intro:
+      'PT Buana Megah operates in the energy and infrastructure sector, delivering ' +
+      'strategic projects across Indonesia. Safety, integrity, and the development of local ' +
+      'talent sit at the centre of how we work.',
+    body:
+      'Our team brings together experienced professionals in engineering, operations, and ' +
+      'business support. We believe that the company grows when its people grow — which is ' +
+      'why we invest in continuous training, clear career paths, and an inclusive workplace.',
+    backToJobs: 'Browse Jobs',
+    backToHome: 'Back to Home'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<article class="about-page max-w-3xl mx-auto px-4 py-12">
+  <h1 class="text-3xl md:text-4xl font-semibold mb-6">{{ t.title }}</h1>
+  <p class="text-base text-slate-700 leading-relaxed mb-4">{{ t.intro }}</p>
+  <p class="text-base text-slate-700 leading-relaxed mb-8">{{ t.body }}</p>
+
+  <nav class="flex flex-wrap gap-4 text-sm">
+    <a
+      href="/{{ locale }}/jobs"
+      class="inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+    >
+      {{ t.backToJobs }}
+    </a>
+    <a
+      href="/{{ locale }}/"
+      class="inline-flex items-center px-4 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-100"
+    >
+      {{ t.backToHome }}
+    </a>
+  </nav>
+</article>
+{% endblock %}

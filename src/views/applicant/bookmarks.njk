@@ -1,0 +1,167 @@
+{# Applicant bookmarks page (task 28.1).
+   Validates: Requirements 6.5, 6.6
+   Design: §6 Applicant_Area, §4.2 (htmx interaction patterns)
+
+   Renders the list of every Job_Posting the authenticated applicant
+   has bookmarked. Two visible states per row:
+
+     - Active   (Published & deadline today-or-future):
+                  → bookmark toggle (filled), Apply CTA, View link
+     - Inactive (Closed/Archived/expired):
+                  → bookmark toggle (still filled, so the user can
+                    remove it), "no longer available" badge, Apply
+                    button is replaced by a plain View link
+                    (Req 6.6 — disable Apply for unpublished/expired
+                    jobs).
+
+   Inputs (passed by `src/routes/applicant.ts`):
+     - locale     : 'id' | 'en'
+     - bookmarks  : BookmarkRow[]   — output of `bookmarks.list()`
+     - csrfToken  : string          — 43-char base64url session token
+     - cspNonce   : string          — for any inline <script> tags
+#}
+{% extends "layouts/public.njk" %}
+
+{# Render a bookmark-toggle button. Wrapped in a macro so the
+   bookmarks page can iterate rows and pass per-row arguments
+   (`jobId`, `bookmarked`) without relying on `{% include … with %}`,
+   which Nunjucks does not support — `{% include %}` always renders
+   in the parent context. The macro shells out to the same partial
+   the toggle endpoint returns so the htmx swap is consistent. #}
+{% macro bookmarkButton(jobId, bookmarked, csrfToken, locale) %}
+  {% set bmTr = {
+    id: { add: 'Tambahkan ke favorit', remove: 'Hapus dari favorit' },
+    en: { add: 'Bookmark this job', remove: 'Remove bookmark' }
+  } %}
+  {% set bmT = bmTr[locale] or bmTr.id %}
+  <button
+    id="bookmark-btn-{{ jobId }}"
+    type="button"
+    class="bookmark-btn{% if bookmarked %} bookmark-btn--on{% else %} bookmark-btn--off{% endif %}"
+    aria-pressed="{% if bookmarked %}true{% else %}false{% endif %}"
+    aria-label="{% if bookmarked %}{{ bmT.remove }}{% else %}{{ bmT.add }}{% endif %}"
+    data-job-id="{{ jobId }}"
+    hx-post="/api/bookmarks/toggle"
+    hx-vals='{"jobId": {{ jobId }}}'
+    hx-headers='{"X-CSRF-Token": "{{ csrfToken }}"}'
+    hx-swap="outerHTML"
+  >
+    {% if bookmarked %}
+      <span aria-hidden="true" class="bookmark-icon bookmark-icon--filled">★</span>
+    {% else %}
+      <span aria-hidden="true" class="bookmark-icon bookmark-icon--outline">☆</span>
+    {% endif %}
+  </button>
+{% endmacro %}
+
+{% set bmPageTr = {
+  id: {
+    title: 'Lowongan Tersimpan',
+    intro: 'Daftar lowongan yang Anda simpan. Lowongan yang sudah ditutup atau melewati batas lamaran ditandai sebagai tidak aktif.',
+    empty: 'Anda belum menyimpan lowongan apa pun.',
+    browse: 'Telusuri lowongan',
+    apply: 'Lamar Sekarang',
+    view: 'Lihat detail',
+    inactiveBadge: 'Tidak tersedia lagi',
+    location: 'Lokasi',
+    deadline: 'Batas lamaran',
+    bookmarked: 'Disimpan'
+  },
+  en: {
+    title: 'Saved Jobs',
+    intro: 'The jobs you bookmarked. Postings that are closed or past their deadline are marked as inactive.',
+    empty: 'You have not saved any jobs yet.',
+    browse: 'Browse jobs',
+    apply: 'Apply Now',
+    view: 'View details',
+    inactiveBadge: 'No longer available',
+    location: 'Location',
+    deadline: 'Apply by',
+    bookmarked: 'Saved'
+  }
+} %}
+{% set bp = bmPageTr[locale] or bmPageTr.id %}
+
+{% block title %}{{ bp.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-bookmarks max-w-3xl mx-auto px-4 py-10">
+  <h1 class="text-2xl md:text-3xl font-semibold mb-2">{{ bp.title }}</h1>
+  <p class="text-slate-600 mb-6">{{ bp.intro }}</p>
+
+  {% if bookmarks and bookmarks.length > 0 %}
+    <ul class="bookmark-list grid grid-cols-1 gap-4 list-none p-0">
+      {% for row in bookmarks %}
+        <li
+          class="bookmark-row bg-white border border-slate-200 rounded shadow-sm p-4 flex flex-col gap-2{% if not row.isApplyable %} bookmark-row--inactive{% endif %}"
+          data-job-id="{{ row.jobId }}"
+          data-active="{% if row.isApplyable %}1{% else %}0{% endif %}"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <h2 class="text-lg font-medium">
+              <a href="/{{ locale }}/jobs/{{ row.slug }}" class="text-blue-700 hover:underline">
+                {{ row.title or row.slug }}
+              </a>
+            </h2>
+            {# Bookmark toggle — uses the same shape as the partial the
+               toggle endpoint returns, so the htmx swap is consistent.
+               The toggle state is always `true` here (every row IS
+               bookmarked); clicking it removes the bookmark and the
+               button re-renders with aria-pressed="false". The host
+               `<li>` does NOT auto-hide on remove — the user can refresh
+               to see the updated list. #}
+            {{ bookmarkButton(row.jobId, true, csrfToken, locale) }}
+          </div>
+
+          <dl class="text-sm text-slate-600 space-y-1">
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ bp.location }}:</dt>
+              <dd>{{ row.location }}</dd>
+            </div>
+            {% if row.applicationDeadline %}
+              <div class="flex gap-2">
+                <dt class="font-medium text-slate-500">{{ bp.deadline }}:</dt>
+                <dd>{{ row.applicationDeadline }}</dd>
+              </div>
+            {% endif %}
+          </dl>
+
+          {% if not row.isApplyable %}
+            <p class="bookmark-row__inactive-badge text-sm text-amber-700 bg-amber-100 rounded px-2 py-1 inline-block">
+              {{ bp.inactiveBadge }}
+            </p>
+          {% endif %}
+
+          <div class="bookmark-row__actions mt-2 flex flex-wrap gap-3">
+            {% if row.isApplyable %}
+              <a
+                href="/{{ locale }}/jobs/{{ row.slug }}"
+                class="btn btn-primary inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700"
+              >
+                {{ bp.apply }}
+              </a>
+            {% else %}
+              {# Apply CTA disabled per Req 6.6. We render only a View link
+                 so the user can still see the (closed/archived) detail
+                 page if they want to. #}
+              <a
+                href="/{{ locale }}/jobs/{{ row.slug }}"
+                class="btn btn-link text-blue-600 hover:underline"
+              >
+                {{ bp.view }}
+              </a>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-slate-500 py-8 text-center">{{ bp.empty }}</p>
+    <p class="text-center">
+      <a href="/{{ locale }}/jobs" class="btn btn-primary inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700">
+        {{ bp.browse }}
+      </a>
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

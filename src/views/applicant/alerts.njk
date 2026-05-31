@@ -1,0 +1,44 @@
+{# Applicant job alerts page (task 33.1).
+   Validates: Requirements 7.1
+   Design: §6 Applicant_Area, §7.2 (job_alerts), §11.3 (alert-digest cron)
+
+   Full-page wrapper for the applicant's job alerts. A normal navigation
+   request renders this document; htmx writes (create / delete) target
+   `#alerts-section` and swap its outerHTML in place (see
+   `applicant/alerts-section.njk`), so the list + counter + form state
+   stay in sync without a full reload.
+
+   Inputs (passed by `src/routes/applicant.ts`):
+     - locale       : 'id' | 'en'
+     - csrfToken    : string
+     - alerts       : AlertRow[]   (output of `listAlerts`)
+     - capReached   : boolean      (alerts.length >= 10)
+     - form         : { values, errors, generalError } | null
+     - cspNonce     : string | undefined
+#}
+{% extends "layouts/public.njk" %}
+
+{% set pageTr = {
+  id: {
+    pageTitle: 'Notifikasi Lowongan',
+    title: 'Notifikasi Lowongan',
+    intro: 'Buat notifikasi agar kami mengirim email lowongan baru yang sesuai dengan minat Anda.'
+  },
+  en: {
+    pageTitle: 'Job Alerts',
+    title: 'Job Alerts',
+    intro: 'Create alerts so we email you new jobs that match your interests.'
+  }
+} %}
+{% set pt = pageTr[locale] or pageTr.id %}
+
+{% block title %}{{ pt.pageTitle }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-alerts max-w-3xl mx-auto px-4 py-10">
+  <h1 class="text-2xl md:text-3xl font-semibold mb-2">{{ pt.title }}</h1>
+  <p class="text-slate-600 mb-6">{{ pt.intro }}</p>
+
+  {% include "applicant/alerts-section.njk" %}
+</section>
+{% endblock %}

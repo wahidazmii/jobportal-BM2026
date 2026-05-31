@@ -1,0 +1,195 @@
+{# Job alerts section fragment for the applicant alerts page (task 33.1).
+   Validates: Requirements 7.1
+   Design: §6 Applicant_Area, §7.2 (job_alerts)
+
+   Renders the entire alerts panel: the list of existing alerts plus the
+   "create" form. htmx targets this section's outer wrapper so a
+   successful create / delete can swap the panel in place without a full
+   page reload — keeping the cap counter + form visibility consistent.
+
+   Inputs (resolved from the parent template's locals):
+     - locale       : 'id' | 'en'
+     - csrfToken    : string
+     - alerts       : AlertRow[]   (output of `listAlerts`)
+     - capReached   : boolean      (alerts.length >= 10)
+     - form         : { values, errors, generalError } | null
+                      (set when re-rendering after a validation / cap error)
+#}
+{% set tr = {
+  id: {
+    sectionHint: 'Maksimal 10 notifikasi.',
+    counter: 'Notifikasi',
+    of: 'dari',
+    capReached: 'Anda telah mencapai batas 10 notifikasi. Hapus salah satu untuk membuat yang baru.',
+    empty: 'Belum ada notifikasi lowongan.',
+    addTitle: 'Buat Notifikasi',
+    keyword: 'Kata kunci',
+    keywordHint: 'Opsional. Mis. "engineer".',
+    locations: 'Lokasi',
+    locationsHint: 'Opsional. Pisahkan dengan koma. Mis. Jakarta, Surabaya.',
+    departments: 'Departemen (ID)',
+    departmentsHint: 'Opsional. ID departemen dipisah koma. Mis. 3, 7.',
+    frequency: 'Frekuensi',
+    daily: 'Harian',
+    weekly: 'Mingguan',
+    submit: 'Simpan',
+    remove: 'Hapus',
+    confirmRemove: 'Hapus notifikasi ini?',
+    anyKeyword: 'Semua kata kunci',
+    anyLocation: 'Semua lokasi',
+    anyDepartment: 'Semua departemen'
+  },
+  en: {
+    sectionHint: 'Up to 10 alerts.',
+    counter: 'Alerts',
+    of: 'of',
+    capReached: 'You have reached the limit of 10 alerts. Delete one to create a new alert.',
+    empty: 'No job alerts yet.',
+    addTitle: 'Create Alert',
+    keyword: 'Keyword',
+    keywordHint: 'Optional. e.g. "engineer".',
+    locations: 'Locations',
+    locationsHint: 'Optional. Separate with commas. e.g. Jakarta, Surabaya.',
+    departments: 'Departments (ID)',
+    departmentsHint: 'Optional. Department ids separated by commas. e.g. 3, 7.',
+    frequency: 'Frequency',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    submit: 'Save',
+    remove: 'Remove',
+    confirmRemove: 'Remove this alert?',
+    anyKeyword: 'Any keyword',
+    anyLocation: 'Any location',
+    anyDepartment: 'Any department'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% set f = form or { values: {}, errors: {}, generalError: null } %}
+
+<section
+  id="alerts-section"
+  class="applicant-alerts__section"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <header class="applicant-alerts__header">
+    <p class="applicant-alerts__hint">{{ t.sectionHint }}</p>
+    <p class="applicant-alerts__counter" aria-live="polite">
+      {{ t.counter }}: <strong>{{ alerts.length }}</strong> {{ t.of }} 10
+    </p>
+  </header>
+
+  {% if f.generalError %}
+    <div class="alert alert-error" role="alert">{{ f.generalError }}</div>
+  {% endif %}
+
+  {% if alerts.length == 0 %}
+    <p class="applicant-alerts__empty">{{ t.empty }}</p>
+  {% else %}
+    <ul class="applicant-alerts__list list-none p-0 grid grid-cols-1 gap-3">
+      {% for alert in alerts %}
+        <li class="applicant-alerts__row border border-slate-200 rounded p-4 flex items-start justify-between gap-3"
+            data-alert-id="{{ alert.id }}">
+          <dl class="text-sm text-slate-700 space-y-1">
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ t.keyword }}:</dt>
+              <dd>{{ alert.keyword if alert.keyword else t.anyKeyword }}</dd>
+            </div>
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ t.locations }}:</dt>
+              <dd>{{ alert.locations | join(', ') if alert.locations else t.anyLocation }}</dd>
+            </div>
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ t.departments }}:</dt>
+              <dd>{{ alert.departments | join(', ') if alert.departments else t.anyDepartment }}</dd>
+            </div>
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ t.frequency }}:</dt>
+              <dd>{{ t.daily if alert.frequency == 'Daily' else t.weekly }}</dd>
+            </div>
+          </dl>
+
+          <form
+            method="post"
+            action="/{{ locale }}/me/alerts/{{ alert.id }}/delete"
+            hx-post="/{{ locale }}/me/alerts/{{ alert.id }}/delete"
+            hx-target="#alerts-section"
+            hx-swap="outerHTML"
+            hx-confirm="{{ t.confirmRemove }}"
+            hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+          >
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <button type="submit" class="btn btn-link text-red-600 hover:underline">
+              {{ t.remove }}
+            </button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if capReached %}
+    <p class="alert alert-warn" role="status">{{ t.capReached }}</p>
+  {% else %}
+    <form
+      class="applicant-alerts__add mt-6"
+      method="post"
+      action="/{{ locale }}/me/alerts"
+      hx-post="/{{ locale }}/me/alerts"
+      hx-target="#alerts-section"
+      hx-swap="outerHTML"
+      hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <h2 class="text-lg font-medium mb-3">{{ t.addTitle }}</h2>
+
+      <div class="field mb-3">
+        <label for="alert-keyword">{{ t.keyword }}</label>
+        <input type="text" id="alert-keyword" name="keyword"
+               maxlength="100"
+               value="{{ f.values.keyword | default('') }}">
+        <small class="field-hint text-slate-500">{{ t.keywordHint }}</small>
+        {% if f.errors.keyword %}
+          <ul class="field-errors">{% for m in f.errors.keyword %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field mb-3">
+        <label for="alert-locations">{{ t.locations }}</label>
+        <input type="text" id="alert-locations" name="locations"
+               value="{{ f.values.locations | default('') }}">
+        <small class="field-hint text-slate-500">{{ t.locationsHint }}</small>
+        {% if f.errors.locations %}
+          <ul class="field-errors">{% for m in f.errors.locations %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field mb-3">
+        <label for="alert-departments">{{ t.departments }}</label>
+        <input type="text" id="alert-departments" name="departments"
+               value="{{ f.values.departments | default('') }}">
+        <small class="field-hint text-slate-500">{{ t.departmentsHint }}</small>
+        {% if f.errors.departments %}
+          <ul class="field-errors">{% for m in f.errors.departments %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field mb-4">
+        <label for="alert-frequency">{{ t.frequency }}</label>
+        <select id="alert-frequency" name="frequency" required>
+          <option value="Daily" {% if (f.values.frequency | default('Daily')) == 'Daily' %}selected{% endif %}>{{ t.daily }}</option>
+          <option value="Weekly" {% if (f.values.frequency | default('')) == 'Weekly' %}selected{% endif %}>{{ t.weekly }}</option>
+        </select>
+        {% if f.errors.frequency %}
+          <ul class="field-errors">{% for m in f.errors.frequency %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700">
+        {{ t.submit }}
+      </button>
+    </form>
+  {% endif %}
+</section>

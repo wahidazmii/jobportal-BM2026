@@ -1,0 +1,182 @@
+{# Education section fragment for the applicant profile page (task 16.2).
+   Validates: Requirements 4.2
+   Design: §6 Applicant_Area
+
+   Renders the entire education panel: the list of existing entries
+   (each as its own row fragment) plus the "add new" form. htmx targets
+   this section's outer wrapper so a successful create/edit/delete can
+   swap the panel in place without a full page reload.
+
+   Inputs (resolved from the parent template's locals):
+     - locale       : 'id' | 'en'
+     - csrfToken    : string                       (for forms / hx-headers)
+     - educations   : EducationRecord[]            (list from listEducation)
+     - capReached   : boolean                      (educations.length >= 20)
+     - addForm      : { values, errors, generalError } | null
+                      (set when re-rendering with validation errors)
+
+   The wrapping `<section id="education-section" hx-target="this">` lets
+   the row fragments and the create form swap the whole panel atomically:
+   that keeps the cap-check + counter in sync without needing JS.
+#}
+
+{% set tr = {
+  id: {
+    title: 'Pendidikan',
+    sectionHint: 'Maksimal 20 entri. Urut dari yang terbaru.',
+    counter: 'Entri',
+    of: 'dari',
+    capReached: 'Anda telah mencapai batas 20 entri pendidikan. Hapus salah satu untuk menambah yang baru.',
+    empty: 'Belum ada riwayat pendidikan.',
+    addTitle: 'Tambah Pendidikan',
+    institution: 'Institusi',
+    degree: 'Gelar',
+    field: 'Bidang Studi',
+    startDate: 'Tanggal Mulai',
+    endDate: 'Tanggal Selesai',
+    inProgress: 'Masih berjalan',
+    gpa: 'IPK (0,00 - 4,00)',
+    submit: 'Simpan',
+    edit: 'Ubah',
+    cancel: 'Batal',
+    remove: 'Hapus',
+    confirmRemove: 'Hapus entri pendidikan ini?'
+  },
+  en: {
+    title: 'Education',
+    sectionHint: 'Up to 20 entries. Newest first.',
+    counter: 'Entries',
+    of: 'of',
+    capReached: 'You have reached the limit of 20 education entries. Remove one to add a new entry.',
+    empty: 'No education entries yet.',
+    addTitle: 'Add Education',
+    institution: 'Institution',
+    degree: 'Degree',
+    field: 'Field of study',
+    startDate: 'Start date',
+    endDate: 'End date',
+    inProgress: 'In progress',
+    gpa: 'GPA (0.00 - 4.00)',
+    submit: 'Save',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    remove: 'Remove',
+    confirmRemove: 'Remove this education entry?'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% set form = addForm or { values: {}, errors: {}, generalError: null } %}
+
+<section
+  id="education-section"
+  class="profile-education"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <header class="profile-education__header">
+    <h2>{{ t.title }}</h2>
+    <p class="profile-education__hint">{{ t.sectionHint }}</p>
+    <p class="profile-education__counter" aria-live="polite">
+      {{ t.counter }}: <strong>{{ educations.length }}</strong> {{ t.of }} 20
+    </p>
+  </header>
+
+  {% if form.generalError %}
+    <div class="alert alert-error" role="alert">{{ form.generalError }}</div>
+  {% endif %}
+
+  {% if educations.length == 0 %}
+    <p class="profile-education__empty">{{ t.empty }}</p>
+  {% else %}
+    <ul class="profile-education__list">
+      {% for edu in educations %}
+        {% include "applicant/education-row.njk" %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if capReached %}
+    <p class="alert alert-warn" role="status">{{ t.capReached }}</p>
+  {% else %}
+    <form
+      class="profile-education__add"
+      method="post"
+      action="/{{ locale }}/me/profile/education"
+      hx-post="/{{ locale }}/me/profile/education"
+      hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <h3>{{ t.addTitle }}</h3>
+
+      <div class="field">
+        <label for="add-institution">{{ t.institution }}</label>
+        <input type="text" id="add-institution" name="institution"
+               required maxlength="150"
+               value="{{ form.values.institution | default('') }}">
+        {% if form.errors.institution %}
+          <ul class="field-errors">{% for m in form.errors.institution %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-degree">{{ t.degree }}</label>
+        <input type="text" id="add-degree" name="degree"
+               required maxlength="100"
+               value="{{ form.values.degree | default('') }}">
+        {% if form.errors.degree %}
+          <ul class="field-errors">{% for m in form.errors.degree %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-field">{{ t.field }}</label>
+        <input type="text" id="add-field" name="field"
+               required maxlength="100"
+               value="{{ form.values.field | default('') }}">
+        {% if form.errors.field %}
+          <ul class="field-errors">{% for m in form.errors.field %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-start_date">{{ t.startDate }}</label>
+        <input type="date" id="add-start_date" name="start_date"
+               required value="{{ form.values.start_date | default('') }}">
+        {% if form.errors.start_date %}
+          <ul class="field-errors">{% for m in form.errors.start_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-end_date">{{ t.endDate }}</label>
+        <input type="date" id="add-end_date" name="end_date"
+               value="{{ form.values.end_date | default('') }}">
+        {% if form.errors.end_date %}
+          <ul class="field-errors">{% for m in form.errors.end_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field field-checkbox">
+        <label>
+          <input type="checkbox" name="in_progress" value="on"
+                 {% if form.values.in_progress %}checked{% endif %}>
+          {{ t.inProgress }}
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="add-gpa">{{ t.gpa }}</label>
+        <input type="number" step="0.01" min="0" max="4"
+               id="add-gpa" name="gpa"
+               value="{{ form.values.gpa | default('') }}">
+        {% if form.errors.gpa %}
+          <ul class="field-errors">{% for m in form.errors.gpa %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+    </form>
+  {% endif %}
+</section>

@@ -1,0 +1,115 @@
+{# Public landing page (task 22.4).
+   Validates: Requirements 2.1, 17.2 (Design §6 Public_Site).
+
+   Variables provided by `src/routes/public.ts`:
+     - locale   : 'id' | 'en'                      (validated upstream)
+     - featured : JobPosting[]                     (≤ 6 most-recent
+                                                    Published rows; may be
+                                                    empty if the DB query
+                                                    failed or no jobs are
+                                                    Published yet)
+     - cspNonce : string | undefined               (CSP nonce for any inline
+                                                    script — none today)
+
+   The CTA links to `/:locale/jobs` (owned by task 22.2). The featured
+   strip prefers the slug as a placeholder display label until the i18n
+   module (task 48) wires the active-locale translation join into the
+   list query. The slug is human-readable enough on its own
+   (`marketing-manager-jakarta`) for the MVP landing.
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Karier di PT Buana Megah',
+    tagline: 'Tumbuh bersama tim yang berkomitmen membangun infrastruktur energi masa depan.',
+    cta: 'Lihat Lowongan',
+    featuredHeading: 'Lowongan Pilihan',
+    featuredEmpty: 'Belum ada lowongan terbuka saat ini. Silakan periksa kembali nanti.',
+    location: 'Lokasi',
+    employmentType: 'Tipe',
+    level: 'Level',
+    viewDetail: 'Lihat detail',
+    aboutLink: 'Tentang Perusahaan'
+  },
+  en: {
+    title: 'Careers at PT Buana Megah',
+    tagline: 'Grow with a team building the energy infrastructure of tomorrow.',
+    cta: 'Browse Jobs',
+    featuredHeading: 'Featured Jobs',
+    featuredEmpty: 'No open positions right now. Please check back later.',
+    location: 'Location',
+    employmentType: 'Type',
+    level: 'Level',
+    viewDetail: 'View details',
+    aboutLink: 'About the Company'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="hero bg-slate-900 text-white">
+  <div class="max-w-6xl mx-auto px-4 py-16 md:py-24 text-center">
+    <h1 class="text-3xl md:text-5xl font-semibold mb-4">{{ t.title }}</h1>
+    <p class="text-lg md:text-xl text-slate-200 max-w-2xl mx-auto mb-8">
+      {{ t.tagline }}
+    </p>
+    <a
+      href="/{{ locale }}/jobs"
+      class="inline-flex items-center px-6 py-3 rounded bg-blue-600 text-white text-base font-medium hover:bg-blue-700"
+    >
+      {{ t.cta }}
+    </a>
+  </div>
+</section>
+
+<section class="featured-jobs">
+  <div class="max-w-6xl mx-auto px-4 py-12">
+    <h2 class="text-2xl font-semibold mb-6">{{ t.featuredHeading }}</h2>
+
+    {% if featured and featured.length > 0 %}
+      <ul class="grid grid-cols-1 md:grid-cols-3 gap-4 list-none p-0">
+        {% for job in featured %}
+          <li class="bg-white border border-slate-200 rounded shadow-sm p-4 flex flex-col">
+            <h3 class="text-lg font-medium mb-2">
+              <a href="/{{ locale }}/jobs/{{ job.slug }}" class="text-blue-700 hover:underline">
+                {{ job.slug }}
+              </a>
+            </h3>
+            <dl class="text-sm text-slate-600 space-y-1 mb-4">
+              <div class="flex gap-2">
+                <dt class="font-medium text-slate-500">{{ t.location }}:</dt>
+                <dd>{{ job.location }}</dd>
+              </div>
+              <div class="flex gap-2">
+                <dt class="font-medium text-slate-500">{{ t.employmentType }}:</dt>
+                <dd>{{ job.employment_type }}</dd>
+              </div>
+              <div class="flex gap-2">
+                <dt class="font-medium text-slate-500">{{ t.level }}:</dt>
+                <dd>{{ job.level }}</dd>
+              </div>
+            </dl>
+            <a
+              href="/{{ locale }}/jobs/{{ job.slug }}"
+              class="mt-auto text-sm text-blue-600 hover:underline"
+            >
+              {{ t.viewDetail }} &rarr;
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-slate-500">{{ t.featuredEmpty }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<nav class="max-w-6xl mx-auto px-4 pb-12 text-sm">
+  <a href="/{{ locale }}/about" class="text-blue-600 hover:underline">
+    {{ t.aboutLink }} &rarr;
+  </a>
+</nav>
+{% endblock %}

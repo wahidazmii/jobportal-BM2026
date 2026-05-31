@@ -1,0 +1,66 @@
+{# Skill autocomplete results fragment (task 16.4).
+   Validates: Requirements 4.4
+   Design: §10.1
+
+   Rendered by `GET /:locale/me/profile/skills/search?q=...` and swapped
+   into the autocomplete dropdown via htmx. Each row is a small inline
+   form that POSTs to the toggle endpoint; the response replaces the
+   whole `#skills-section`.
+
+   Inputs:
+     - locale     : 'id' | 'en'
+     - csrfToken  : string
+     - results    : SkillTag[]
+     - assignedIds: number[]   (skill ids the applicant already has)
+     - capReached : boolean    (assigned count >= 30)
+#}
+
+{% set tr = {
+  id: {
+    add: 'Tambah',
+    already: 'Sudah ditambahkan',
+    capReached: 'Maksimal 30 skill',
+    empty: 'Tidak ada skill cocok.'
+  },
+  en: {
+    add: 'Add',
+    already: 'Already added',
+    capReached: 'Maximum 30 skills',
+    empty: 'No matching skills.'
+  }
+} %}
+{% set tSearch = tr[locale] or tr.id %}
+
+<ul id="skill-search-results" class="profile-skill__search-results" role="listbox">
+  {% if results.length == 0 %}
+    <li class="profile-skill__search-empty">{{ tSearch.empty }}</li>
+  {% else %}
+    {% for skill in results %}
+      {% set isAssigned = false %}
+      {% for assignedId in assignedIds %}
+        {% if assignedId == skill.id %}{% set isAssigned = true %}{% endif %}
+      {% endfor %}
+      <li class="profile-skill__search-item" data-skill-id="{{ skill.id }}">
+        <span class="profile-skill__label">{{ skill.label }}</span>
+        {% if isAssigned %}
+          <span class="badge">{{ tSearch.already }}</span>
+        {% elif capReached %}
+          <span class="badge badge-warn">{{ tSearch.capReached }}</span>
+        {% else %}
+          <form
+            method="post"
+            action="/{{ locale }}/me/profile/skills/toggle"
+            hx-post="/{{ locale }}/me/profile/skills/toggle"
+            hx-target="#skills-section"
+            hx-swap="outerHTML"
+            hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+          >
+            <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+            <input type="hidden" name="skill_id" value="{{ skill.id }}">
+            <button type="submit" class="btn btn-link btn-sm">{{ tSearch.add }}</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  {% endif %}
+</ul>

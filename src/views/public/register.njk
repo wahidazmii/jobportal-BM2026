@@ -1,0 +1,133 @@
+{# Applicant registration form (task 9.2).
+   Validates: Requirements 3.1, 3.2, 14.1 (Design §6 Auth, §8.1).
+
+   i18n strings are inlined for now — task 48.1 introduces the i18n module
+   and this template will be migrated to `{{ 'auth.register.title' | t }}`
+   keys then. The view receives:
+     - locale         : 'id' | 'en'
+     - form           : { email, consent }            (sticky values)
+     - errors         : Record<string, string[]>      (zod fieldErrors)
+     - generalError   : string | null                 (top-level message)
+     - hcaptchaSiteKey: string | null                 (null → no widget)
+     - cspNonce       : string                        (for inline scripts)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Daftar Akun Pelamar',
+    intro: 'Buat akun untuk melamar lowongan dan memantau status aplikasi.',
+    email: 'Email',
+    password: 'Kata Sandi',
+    passwordHint: 'Minimal 10 karakter, mengandung huruf dan angka.',
+    consent: 'Saya menyetujui Kebijakan Privasi PT Buana Megah.',
+    submit: 'Daftar',
+    haveAccount: 'Sudah punya akun?',
+    loginLink: 'Masuk di sini'
+  },
+  en: {
+    title: 'Create Applicant Account',
+    intro: 'Sign up to apply for jobs and track your applications.',
+    email: 'Email',
+    password: 'Password',
+    passwordHint: 'At least 10 characters, containing letters and digits.',
+    consent: 'I agree to the PT Buana Megah Privacy Policy.',
+    submit: 'Register',
+    haveAccount: 'Already have an account?',
+    loginLink: 'Sign in'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block head %}
+  {% if hcaptchaSiteKey %}
+    <link rel="preconnect" href="https://hcaptcha.com">
+    <link rel="preconnect" href="https://newassets.hcaptcha.com">
+    <script src="https://hcaptcha.com/1/api.js" async defer{% if cspNonce %} nonce="{{ cspNonce }}"{% endif %}></script>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<section class="auth-form">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.intro }}</p>
+
+  {% if generalError %}
+    <div class="alert alert-error" role="alert">{{ generalError }}</div>
+  {% endif %}
+
+  <form method="post" action="/{{ locale }}/register" novalidate>
+    <div class="field">
+      <label for="email">{{ t.email }}</label>
+      <input type="email"
+             id="email"
+             name="email"
+             autocomplete="email"
+             required
+             maxlength="254"
+             value="{{ form.email | default('') }}">
+      {% if errors.email %}
+        <ul class="field-errors">
+          {% for msg in errors.email %}<li>{{ msg }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label for="password">{{ t.password }}</label>
+      <input type="password"
+             id="password"
+             name="password"
+             autocomplete="new-password"
+             required
+             minlength="10"
+             maxlength="128">
+      <small class="hint">{{ t.passwordHint }}</small>
+      {% if errors.password %}
+        <ul class="field-errors">
+          {% for msg in errors.password %}<li>{{ msg }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div class="field field-checkbox">
+      <label>
+        <input type="checkbox"
+               name="consent"
+               value="on"
+               {% if form.consent %}checked{% endif %}
+               required>
+        {{ t.consent }}
+      </label>
+      {% if errors.consent %}
+        <ul class="field-errors">
+          {% for msg in errors.consent %}<li>{{ msg }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    {% if hcaptchaSiteKey %}
+      <div class="field">
+        <div class="h-captcha" data-sitekey="{{ hcaptchaSiteKey }}"></div>
+      </div>
+    {% else %}
+      {# Dev/test mode: no live captcha. The schema still requires a non-empty
+         token so we provide a fixed placeholder that satisfies the form. #}
+      <input type="hidden" name="h-captcha-response" value="dev-no-captcha">
+    {% endif %}
+    {% if errors.captchaToken %}
+      <ul class="field-errors">
+        {% for msg in errors.captchaToken %}<li>{{ msg }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+  </form>
+
+  <p class="auth-form-footer">
+    {{ t.haveAccount }} <a href="/{{ locale }}/login">{{ t.loginLink }}</a>
+  </p>
+</section>
+{% endblock %}

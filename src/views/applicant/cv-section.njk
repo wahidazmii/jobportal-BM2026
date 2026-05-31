@@ -1,0 +1,152 @@
+{# Applicant CV section fragment (task 17.1).
+
+   Validates: Requirements 4.5, 4.6, 4.7, 4.8, 15.5
+   Design: §9 (CV upload pipeline)
+
+   Renders the CV upload form together with the applicant's current
+   active CV and any retained history (max 3 rows total per
+   `MAX_CV_HISTORY`). The wrapping `<section id="cv-section">` is the
+   htmx swap target: a successful upload returns this whole fragment so
+   the active row updates and the history list re-renders without a
+   full-page reload. Validation errors (413 / 415 / 507) re-render the
+   same fragment with `generalError` populated.
+
+   Inputs (resolved from the parent template's locals):
+     - locale         : 'id' | 'en'
+     - csrfToken      : string                       (43-char base64url)
+     - cvs            : CvFileRecord[]               (newest first)
+     - generalError   : string | null                (top-level message)
+     - saved          : boolean                      (success banner)
+     - maxBytes       : number                       (5 * 1024 * 1024)
+     - allowedExts    : string                       (e.g. 'PDF, DOC, DOCX')
+
+   The form uses `enctype="multipart/form-data"` and `hx-encoding`
+   matching, so htmx submits the file via `XMLHttpRequest` and swaps
+   the section in place on response.
+#}
+
+{% set tr = {
+  id: {
+    title: 'Curriculum Vitae',
+    intro: 'Unggah CV terbaru Anda. Format: PDF, DOC, atau DOCX, maksimal 5 MB. Sistem menyimpan hingga 3 versi terakhir.',
+    saved: 'CV berhasil diunggah.',
+    activeLabel: 'CV aktif',
+    historyLabel: 'Riwayat',
+    noActive: 'Anda belum mengunggah CV.',
+    download: 'Unduh',
+    uploadedAt: 'Diunggah',
+    sizeKb: 'KB',
+    chooseFile: 'Pilih berkas',
+    submit: 'Unggah CV',
+    chooseHelp: 'PDF, DOC, atau DOCX. Maksimal 5 MB.'
+  },
+  en: {
+    title: 'Curriculum Vitae',
+    intro: 'Upload your latest CV. Format: PDF, DOC, or DOCX, up to 5 MB. The system keeps your 3 most recent versions.',
+    saved: 'CV uploaded successfully.',
+    activeLabel: 'Active CV',
+    historyLabel: 'History',
+    noActive: 'You have not uploaded a CV yet.',
+    download: 'Download',
+    uploadedAt: 'Uploaded',
+    sizeKb: 'KB',
+    chooseFile: 'Choose file',
+    submit: 'Upload CV',
+    chooseHelp: 'PDF, DOC, or DOCX. Maximum 5 MB.'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{# Split active vs history without filters that may not be registered. #}
+{% set active = null %}
+{% for cv in cvs %}
+  {% if cv.is_active and active == null %}{% set active = cv %}{% endif %}
+{% endfor %}
+
+<section
+  id="cv-section"
+  class="profile-cv"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <header class="profile-cv__header">
+    <h2>{{ t.title }}</h2>
+    <p class="profile-cv__hint">{{ t.intro }}</p>
+  </header>
+
+  {% if saved %}
+    <div class="alert alert-success" role="status">{{ t.saved }}</div>
+  {% endif %}
+
+  {% if generalError %}
+    <div class="alert alert-error" role="alert">{{ generalError }}</div>
+  {% endif %}
+
+  <div class="profile-cv__active" data-testid="cv-active">
+    <h3>{{ t.activeLabel }}</h3>
+    {% if active %}
+      <p>
+        <a href="/{{ locale }}/me/cv/{{ active.id }}" rel="nofollow">
+          {{ active.original_filename }}
+        </a>
+        <small>
+          {{ t.uploadedAt }}:
+          {{ active.uploaded_at | string }}
+          ·
+          {{ (active.size_bytes / 1024) | round | int }} {{ t.sizeKb }}
+        </small>
+      </p>
+    {% else %}
+      <p class="profile-cv__empty">{{ t.noActive }}</p>
+    {% endif %}
+  </div>
+
+  {% if cvs.length > 1 %}
+    <div class="profile-cv__history" data-testid="cv-history">
+      <h3>{{ t.historyLabel }}</h3>
+      <ul>
+        {% for cv in cvs %}
+          {% if not cv.is_active %}
+            <li>
+              <a href="/{{ locale }}/me/cv/{{ cv.id }}" rel="nofollow">
+                {{ cv.original_filename }}
+              </a>
+              <small>
+                {{ t.uploadedAt }}:
+                {{ cv.uploaded_at | string }}
+                ·
+                {{ (cv.size_bytes / 1024) | round | int }} {{ t.sizeKb }}
+              </small>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form
+    class="profile-cv__upload"
+    method="post"
+    action="/{{ locale }}/me/cv"
+    enctype="multipart/form-data"
+    hx-post="/{{ locale }}/me/cv"
+    hx-encoding="multipart/form-data"
+    hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+    novalidate
+  >
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <div class="field">
+      <label for="cv-file">{{ t.chooseFile }}</label>
+      <input
+        type="file"
+        id="cv-file"
+        name="cv"
+        accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.doc,.docx"
+        required>
+      <small class="hint">{{ t.chooseHelp }}</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+  </form>
+</section>

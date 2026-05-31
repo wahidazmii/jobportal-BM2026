@@ -1,0 +1,139 @@
+{# Public job detail page (task 22.2, 48.2).
+   Validates: Requirements 2.4, 2.5, 2.8, 17.4 (Design §4.3, §6 Public, §13).
+
+   Variables provided by `src/routes/public.ts`:
+     - locale              : 'id' | 'en'
+     - job                 : JobPostingDetail            (status === 'Published')
+     - translation         : { title, description, requirements, responsibilities }
+                             (already resolved to active locale → id → en)
+     - translationLocale   : 'id' | 'en'  — the actual locale of `translation`
+                             (may differ from `locale` when only one locale exists)
+     - jsonLdString        : string                      (already JSON.stringified
+                                                          schema.org JobPosting payload)
+     - canonicalUrl        : string                      (absolute URL to this page)
+     - applyUrl            : string                      (e.g. `/{locale}/jobs/{slug}/apply`
+                                                          — wired up by task 26.1)
+     - cspNonce            : string | undefined
+
+   Task 48.2 — Job posting translations (Req 17.4, Design §13):
+     When `translationLocale` differs from `locale`, the content is not in
+     the requested language. A badge "Original Language" is shown to inform
+     the visitor that the content is displayed in its original language.
+
+   The JSON-LD block sits in the document <head> per design §4.3 so
+   crawlers pick it up immediately. Nunjucks autoescape is bypassed for
+   the stringified payload — JSON.stringify already escapes the only
+   characters that could break out of an HTML <script> context, but we
+   additionally guard `</` -> `<\/` to defeat the
+   "</script>" injection vector that JSON.stringify alone does not
+   handle.
+#}
+{% extends "layouts/public.njk" %}
+
+{#
+  Determine whether the displayed content is in the requested locale.
+  `translationLocale` is set by the route handler to the actual locale
+  of the resolved translation. When it differs from `locale`, the job
+  only has content in one language and we show the "Original Language" badge.
+#}
+{% set isOriginalLanguage = translationLocale and translationLocale != locale %}
+
+{% block title %}{{ translation.title }} | PT Buana Megah{% endblock %}
+
+{% block head %}
+  <link rel="canonical" href="{{ canonicalUrl }}">
+  <link rel="alternate" hreflang="id" href="/id/jobs/{{ job.slug }}">
+  <link rel="alternate" hreflang="en" href="/en/jobs/{{ job.slug }}">
+  <link rel="alternate" hreflang="x-default" href="/id/jobs/{{ job.slug }}">
+  {# LCP optimisation (task 56.1, Design §4.3 — Req 2.10):
+     Preconnect to hCaptcha origins so the TLS handshake is resolved before
+     the apply form (which may embed a captcha widget) is rendered.
+     The layout already provides these globally, but repeating them here
+     as early hints on the detail page ensures they are emitted even if
+     the layout block order changes in the future. #}
+  <link rel="preconnect" href="https://hcaptcha.com">
+  <link rel="preconnect" href="https://newassets.hcaptcha.com">
+  <script type="application/ld+json"{% if cspNonce %} nonce="{{ cspNonce }}"{% endif %}>{{ jsonLdString | replace('</', '<\\/') | safe }}</script>
+{% endblock %}
+
+{% block content %}
+<article class="job-detail max-w-3xl mx-auto px-4 py-10">
+  <p class="mb-2">
+    <a href="/{{ locale }}/jobs" class="text-sm text-blue-600 hover:underline">
+      &larr; {{ 'jobs.backToList' | t }}
+    </a>
+  </p>
+
+  <div class="flex items-start gap-3 mb-4">
+    <h1 class="text-3xl md:text-4xl font-semibold">{{ translation.title }}</h1>
+    {# Task 48.2 — Req 17.4: show badge when content is not in the requested locale #}
+    {% if isOriginalLanguage %}
+      <span class="badge inline-flex items-center px-2 py-1 mt-2 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
+        {{ 'jobs.originalLanguage' | t }}
+      </span>
+    {% endif %}
+  </div>
+
+  <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mb-6 text-sm">
+    <div class="flex gap-2">
+      <dt class="font-medium text-slate-500">{{ 'jobs.location' | t }}:</dt>
+      <dd>{{ job.location }}</dd>
+    </div>
+    <div class="flex gap-2">
+      <dt class="font-medium text-slate-500">{{ 'jobs.employmentType' | t }}:</dt>
+      <dd>{{ job.employment_type }}</dd>
+    </div>
+    <div class="flex gap-2">
+      <dt class="font-medium text-slate-500">{{ 'jobs.level' | t }}:</dt>
+      <dd>{{ job.level }}</dd>
+    </div>
+    {% if job.application_deadline %}
+      <div class="flex gap-2">
+        <dt class="font-medium text-slate-500">{{ 'jobs.deadline' | t }}:</dt>
+        <dd>{{ job.application_deadline }}</dd>
+      </div>
+    {% endif %}
+    {% if job.salary_min and job.salary_max %}
+      <div class="flex gap-2 sm:col-span-2">
+        <dt class="font-medium text-slate-500">{{ 'jobs.salary' | t }}:</dt>
+        <dd>
+          {{ job.salary_currency or 'IDR' }}
+          {{ job.salary_min }} &ndash; {{ job.salary_max }}
+        </dd>
+      </div>
+    {% endif %}
+    {% if job.published_at %}
+      <div class="flex gap-2">
+        <dt class="font-medium text-slate-500">{{ 'jobs.publishedAt' | t }}:</dt>
+        <dd>{{ job.published_at.toISOString().slice(0,10) }}</dd>
+      </div>
+    {% endif %}
+  </dl>
+
+  <section class="prose max-w-none mb-8">
+    <h2 class="text-xl font-semibold mb-2">{{ 'jobs.description' | t }}</h2>
+    <div class="whitespace-pre-line text-slate-700">{{ translation.description }}</div>
+  </section>
+
+  {% if translation.responsibilities %}
+    <section class="prose max-w-none mb-8">
+      <h2 class="text-xl font-semibold mb-2">{{ 'jobs.responsibilities' | t }}</h2>
+      <div class="whitespace-pre-line text-slate-700">{{ translation.responsibilities }}</div>
+    </section>
+  {% endif %}
+
+  {% if translation.requirements %}
+    <section class="prose max-w-none mb-8">
+      <h2 class="text-xl font-semibold mb-2">{{ 'jobs.requirements' | t }}</h2>
+      <div class="whitespace-pre-line text-slate-700">{{ translation.requirements }}</div>
+    </section>
+  {% endif %}
+
+  <div class="apply-cta pt-4">
+    <a href="{{ applyUrl }}"
+       class="inline-flex items-center px-6 py-3 rounded bg-blue-600 text-white text-base font-medium hover:bg-blue-700">
+      {{ 'jobs.apply' | t }}
+    </a>
+  </div>
+</article>
+{% endblock %}

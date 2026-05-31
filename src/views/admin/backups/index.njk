@@ -1,0 +1,131 @@
+{# Admin backup list (task 50.2).
+   Validates: Requirement 18.4
+   Design: §6 Admin (GET /admin/backups — Super_Admin only), §17 (Backup Strategy)
+
+   Renders the backup file list at `GET /admin/backups`. Variables:
+     - session      : { userId, role }
+     - dailyFiles   : BackupFileEntry[]  — daily backups in ~/backups/
+     - monthlyFiles : BackupFileEntry[]  — monthly backups in ~/backups/monthly/
+     - csrfToken    : per-session CSRF token (43-char base64url)
+     - cspNonce     : nonce for any inline <script> (currently none)
+
+   Each BackupFileEntry: { filename, sizeBytes, mtime (ISO string), isMonthly }
+
+   Tailwind-light, mirroring `views/admin/audit/index.njk`.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin · Backups</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-semibold">Backup Archives</h1>
+        <span class="text-sm text-slate-500">
+          {{ dailyFiles | length }} daily · {{ monthlyFiles | length }} monthly
+        </span>
+      </div>
+
+      {# Daily backups #}
+      <section class="mb-8">
+        <h2 class="text-lg font-medium mb-3">Daily Backups</h2>
+        <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="px-3 py-2 text-left">Filename</th>
+                <th class="px-3 py-2 text-left">Size</th>
+                <th class="px-3 py-2 text-left">Modified</th>
+                <th class="px-3 py-2 text-left">Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in dailyFiles %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-3 py-2 font-mono text-xs">{{ f.filename }}</td>
+                  <td class="px-3 py-2 text-slate-600 whitespace-nowrap">
+                    {{ (f.sizeBytes / 1048576) | round(2) }} MB
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 whitespace-nowrap">
+                    {{ f.mtime | replace("T", " ") | truncate(19, true, "") }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <a
+                      href="/admin/backups/{{ f.filename }}"
+                      class="text-blue-600 hover:underline text-xs"
+                      download
+                    >Download</a>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="4" class="px-3 py-8 text-center text-slate-500">
+                    No daily backups found.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {# Monthly backups #}
+      <section>
+        <h2 class="text-lg font-medium mb-3">Monthly Backups</h2>
+        <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="px-3 py-2 text-left">Filename</th>
+                <th class="px-3 py-2 text-left">Size</th>
+                <th class="px-3 py-2 text-left">Modified</th>
+                <th class="px-3 py-2 text-left">Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in monthlyFiles %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-3 py-2 font-mono text-xs">{{ f.filename }}</td>
+                  <td class="px-3 py-2 text-slate-600 whitespace-nowrap">
+                    {{ (f.sizeBytes / 1048576) | round(2) }} MB
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 whitespace-nowrap">
+                    {{ f.mtime | replace("T", " ") | truncate(19, true, "") }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <a
+                      href="/admin/backups/{{ f.filename }}"
+                      class="text-blue-600 hover:underline text-xs"
+                      download
+                    >Download</a>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="4" class="px-3 py-8 text-center text-slate-500">
+                    No monthly backups found.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

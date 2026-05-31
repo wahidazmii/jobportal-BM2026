@@ -1,0 +1,258 @@
+{# Applicant profile form (task 16.1).
+   Validates: Requirement 4.1 (Design §6 Applicant_Area).
+
+   i18n strings are inlined for now — task 48.1 introduces the i18n module
+   and this template will be migrated to `{{ 'applicant.profile.title' | t }}`
+   keys then. The view receives:
+     - locale       : 'id' | 'en'
+     - form         : Record<string, string>          (sticky values)
+     - errors       : Record<string, string[]>        (zod fieldErrors)
+     - generalError : string | null                   (top-level message)
+     - saved        : boolean                         (?saved=1 flash)
+     - csrfToken    : string                          (43-char base64url)
+     - cspNonce     : string                          (for any inline scripts)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Profil Saya',
+    intro: 'Lengkapi profil Anda agar dapat melamar lowongan. Bidang dengan tanda * wajib diisi.',
+    saved: 'Profil berhasil disimpan.',
+    sectionPersonal: 'Data Pribadi',
+    sectionContact: 'Kontak & Alamat',
+    sectionSummary: 'Ringkasan & Preferensi',
+    fullName: 'Nama lengkap *',
+    fullNameHint: 'Nama sesuai dokumen identitas (maks. 100 karakter).',
+    dateOfBirth: 'Tanggal lahir',
+    dateOfBirthHint: 'Anda harus berusia minimal 18 tahun.',
+    gender: 'Jenis kelamin',
+    genderOptions: { '': '— Pilih —', 'male': 'Laki-laki', 'female': 'Perempuan', 'prefer-not-to-say': 'Tidak ingin menyebutkan' },
+    phone: 'Nomor telepon',
+    phoneHint: 'Format internasional E.164, mis. +6281234567890.',
+    address: 'Alamat',
+    city: 'Kota',
+    province: 'Provinsi',
+    country: 'Negara',
+    summary: 'Ringkasan singkat',
+    summaryHint: 'Jelaskan keahlian utama Anda dalam beberapa kalimat (maks. 500 karakter).',
+    languagePref: 'Bahasa pilihan',
+    languageOptions: { 'id': 'Bahasa Indonesia', 'en': 'English' },
+    submit: 'Simpan Profil'
+  },
+  en: {
+    title: 'My Profile',
+    intro: 'Complete your profile so you can apply to jobs. Fields marked * are required.',
+    saved: 'Profile saved successfully.',
+    sectionPersonal: 'Personal Information',
+    sectionContact: 'Contact & Address',
+    sectionSummary: 'Summary & Preferences',
+    fullName: 'Full name *',
+    fullNameHint: 'Use the name on your ID document (up to 100 characters).',
+    dateOfBirth: 'Date of birth',
+    dateOfBirthHint: 'You must be at least 18 years old.',
+    gender: 'Gender',
+    genderOptions: { '': '— Select —', 'male': 'Male', 'female': 'Female', 'prefer-not-to-say': 'Prefer not to say' },
+    phone: 'Phone number',
+    phoneHint: 'International E.164 format, e.g. +6281234567890.',
+    address: 'Address',
+    city: 'City',
+    province: 'Province',
+    country: 'Country',
+    summary: 'Short summary',
+    summaryHint: 'Describe your key skills in a few sentences (up to 500 characters).',
+    languagePref: 'Preferred language',
+    languageOptions: { 'id': 'Bahasa Indonesia', 'en': 'English' },
+    submit: 'Save Profile'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-profile">
+  <h1>{{ t.title }}</h1>
+  <p class="lede">{{ t.intro }}</p>
+
+  {% if saved %}
+    <div class="alert alert-success" role="status">{{ t.saved }}</div>
+  {% endif %}
+
+  {% if generalError %}
+    <div class="alert alert-error" role="alert">{{ generalError }}</div>
+  {% endif %}
+
+  <form method="post" action="/{{ locale }}/me/profile" novalidate>
+    <input type="hidden" name="_csrf" value="{{ csrfToken | default('') }}">
+
+    <fieldset>
+      <legend>{{ t.sectionPersonal }}</legend>
+
+      <div class="field">
+        <label for="full_name">{{ t.fullName }}</label>
+        <input type="text"
+               id="full_name"
+               name="full_name"
+               required
+               maxlength="100"
+               value="{{ form.full_name | default('') }}">
+        <small class="hint">{{ t.fullNameHint }}</small>
+        {% if errors.full_name %}
+          <ul class="field-errors">
+            {% for msg in errors.full_name %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="date_of_birth">{{ t.dateOfBirth }}</label>
+        <input type="date"
+               id="date_of_birth"
+               name="date_of_birth"
+               value="{{ form.date_of_birth | default('') }}">
+        <small class="hint">{{ t.dateOfBirthHint }}</small>
+        {% if errors.date_of_birth %}
+          <ul class="field-errors">
+            {% for msg in errors.date_of_birth %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="gender">{{ t.gender }}</label>
+        <select id="gender" name="gender">
+          {% for value, label in t.genderOptions %}
+            <option value="{{ value }}"
+                    {% if form.gender == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if errors.gender %}
+          <ul class="field-errors">
+            {% for msg in errors.gender %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>{{ t.sectionContact }}</legend>
+
+      <div class="field">
+        <label for="phone">{{ t.phone }}</label>
+        <input type="tel"
+               id="phone"
+               name="phone"
+               maxlength="20"
+               autocomplete="tel"
+               value="{{ form.phone | default('') }}">
+        <small class="hint">{{ t.phoneHint }}</small>
+        {% if errors.phone %}
+          <ul class="field-errors">
+            {% for msg in errors.phone %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="address">{{ t.address }}</label>
+        <input type="text"
+               id="address"
+               name="address"
+               maxlength="255"
+               autocomplete="street-address"
+               value="{{ form.address | default('') }}">
+        {% if errors.address %}
+          <ul class="field-errors">
+            {% for msg in errors.address %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="city">{{ t.city }}</label>
+        <input type="text"
+               id="city"
+               name="city"
+               maxlength="100"
+               autocomplete="address-level2"
+               value="{{ form.city | default('') }}">
+        {% if errors.city %}
+          <ul class="field-errors">
+            {% for msg in errors.city %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="province">{{ t.province }}</label>
+        <input type="text"
+               id="province"
+               name="province"
+               maxlength="100"
+               autocomplete="address-level1"
+               value="{{ form.province | default('') }}">
+        {% if errors.province %}
+          <ul class="field-errors">
+            {% for msg in errors.province %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="country">{{ t.country }}</label>
+        <input type="text"
+               id="country"
+               name="country"
+               maxlength="100"
+               autocomplete="country-name"
+               value="{{ form.country | default('') }}">
+        {% if errors.country %}
+          <ul class="field-errors">
+            {% for msg in errors.country %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>{{ t.sectionSummary }}</legend>
+
+      <div class="field">
+        <label for="summary">{{ t.summary }}</label>
+        <textarea id="summary"
+                  name="summary"
+                  rows="4"
+                  maxlength="500">{{ form.summary | default('') }}</textarea>
+        <small class="hint">{{ t.summaryHint }}</small>
+        {% if errors.summary %}
+          <ul class="field-errors">
+            {% for msg in errors.summary %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="language_pref">{{ t.languagePref }}</label>
+        <select id="language_pref" name="language_pref">
+          {% for value, label in t.languageOptions %}
+            <option value="{{ value }}"
+                    {% if (form.language_pref or 'id') == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if errors.language_pref %}
+          <ul class="field-errors">
+            {% for msg in errors.language_pref %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+  </form>
+</section>
+{% endblock %}

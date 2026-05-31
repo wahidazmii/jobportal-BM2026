@@ -1,0 +1,146 @@
+{# Admin users index + invite form (task 42.1).
+   Validates: Requirements 11.7, 12.1
+   Design: §6 Admin (GET /admin/users, POST /admin/users/invite — Super_Admin only), §15 (audit)
+
+   Renders the internal-user list + invite form at `GET /admin/users`.
+   Variables:
+     - session       : { userId, role }
+     - users         : InternalUserRecord[]  (Super_Admin / HR / Department_Head)
+     - inviteRoles   : readonly string[]  (INVITE_ROLES — the invitable roles)
+     - invited       : true when ?invited=1 (post-redirect-get flash)
+     - errors        : Record<string, string[]>  (per-field invite errors)
+     - generalError  : optional top-level invite error message
+     - values        : { email, role }  (sticky form values after a failed POST)
+     - csrfToken     : per-session CSRF token (43-char base64url)
+     - cspNonce      : nonce for any inline <script> (currently none)
+
+   Tailwind-light, mirroring `views/admin/audit/index.njk`; the admin theme
+   proper lands in Phase 8.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin · Users</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Users</h1>
+        <span class="text-sm text-slate-500">{{ users | length }} internal users</span>
+      </div>
+
+      {% if invited %}
+        <div class="mb-4 p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          Invitation sent. A pending account was created and an invitation email was queued.
+        </div>
+      {% endif %}
+
+      {# Invite form (Req 11.7). POST → /admin/users/invite, CSRF-protected. #}
+      <section class="bg-white border border-slate-200 rounded shadow-sm p-4 mb-6">
+        <h2 class="text-lg font-semibold mb-3">Invite a new internal user</h2>
+
+        {% if generalError %}
+          <div class="mb-4 p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+            {{ generalError }}
+          </div>
+        {% endif %}
+
+        <form method="POST" action="/admin/users/invite" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+          <label class="text-sm sm:col-span-1">
+            <span class="block text-slate-600 mb-1">Email</span>
+            <input
+              type="email"
+              name="email"
+              value="{{ values.email }}"
+              required
+              placeholder="user@example.com"
+              class="w-full border border-slate-300 rounded px-2 py-1"
+            >
+            {% if errors.email %}
+              <span class="block text-rose-600 text-xs mt-1">{{ errors.email[0] }}</span>
+            {% endif %}
+          </label>
+
+          <label class="text-sm sm:col-span-1">
+            <span class="block text-slate-600 mb-1">Role</span>
+            <select name="role" class="w-full border border-slate-300 rounded px-2 py-1">
+              {% for r in inviteRoles %}
+                <option value="{{ r }}" {% if values.role == r %}selected{% endif %}>{{ r }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.role %}
+              <span class="block text-rose-600 text-xs mt-1">{{ errors.role[0] }}</span>
+            {% endif %}
+          </label>
+
+          <div class="sm:col-span-1">
+            <button
+              type="submit"
+              class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+            >
+              Send invitation
+            </button>
+          </div>
+        </form>
+        <p class="text-xs text-slate-500 mt-3">
+          The invitee receives a single-use link valid for 7 days. The account stays
+          pending until they accept and set a password.
+        </p>
+      </section>
+
+      <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="px-3 py-2 text-left">Email</th>
+              <th class="px-3 py-2 text-left">Role</th>
+              <th class="px-3 py-2 text-left">Status</th>
+              <th class="px-3 py-2 text-left">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr class="border-t border-slate-200">
+                <td class="px-3 py-2">{{ u.email }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ u.role }}</td>
+                <td class="px-3 py-2">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs
+                    {% if u.status == 'active' %}bg-emerald-50 text-emerald-700
+                    {% elif u.status == 'pending' %}bg-amber-50 text-amber-700
+                    {% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ u.status }}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-slate-500">
+                  {% if u.createdAt %}{{ u.createdAt.toISOString().slice(0,10) }}{% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="4" class="px-3 py-8 text-center text-slate-500">
+                  No internal users yet.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </body>
+</html>

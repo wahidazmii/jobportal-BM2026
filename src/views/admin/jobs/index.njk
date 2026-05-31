@@ -1,0 +1,150 @@
+{# Admin jobs index (task 21.3).
+   Validates: Requirements 9.1, 11.4
+   Design: §6 Admin
+
+   Renders the paginated job list at `GET /admin/jobs`. Variables:
+     - session       : { userId, role, canWrite }
+     - jobs          : JobPosting[]
+     - total         : total row count (across pages)
+     - page          : current 0-based page index
+     - pageSize      : rows per page
+     - totalPages    : Math.ceil(total / pageSize)  (>= 1)
+     - statuses      : ['Draft','Published','Closed','Archived']
+     - statusFilter  : currently applied status or null
+     - csrfToken     : per-session CSRF token (43-char base64url)
+     - cspNonce      : nonce for any inline <script> (currently none)
+
+   The view is intentionally Tailwind-light: the admin theme proper
+   lands in Phase 8. We keep the same utility-class vocabulary used in
+   `views/applicant/dashboard.njk` so the future polish pass can swap
+   wholesale without rewriting structure.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin · Jobs</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Job postings</h1>
+        {% if session.canWrite %}
+          <a
+            href="/admin/jobs/new"
+            class="inline-flex items-center px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+          >
+            New job
+          </a>
+        {% endif %}
+      </div>
+
+      {# Status filter — single-select GET form. #}
+      <form method="GET" action="/admin/jobs" class="mb-4 flex items-end gap-2">
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Status</span>
+          <select name="status" class="border border-slate-300 rounded px-2 py-1">
+            <option value="">All</option>
+            {% for s in statuses %}
+              <option value="{{ s }}" {% if statusFilter == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button
+          type="submit"
+          class="px-3 py-1.5 rounded bg-slate-200 text-slate-800 text-sm hover:bg-slate-300"
+        >
+          Apply
+        </button>
+        {% if statusFilter %}
+          <a href="/admin/jobs" class="text-sm text-blue-600 hover:underline">Clear</a>
+        {% endif %}
+      </form>
+
+      <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="px-3 py-2 text-left">Slug</th>
+              <th class="px-3 py-2 text-left">Title (id)</th>
+              <th class="px-3 py-2 text-left">Location</th>
+              <th class="px-3 py-2 text-left">Type</th>
+              <th class="px-3 py-2 text-left">Level</th>
+              <th class="px-3 py-2 text-left">Status</th>
+              <th class="px-3 py-2 text-left">Updated</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for j in jobs %}
+              <tr class="border-t border-slate-200">
+                <td class="px-3 py-2 font-mono text-xs">{{ j.slug }}</td>
+                <td class="px-3 py-2">{{ j.id }}</td>
+                <td class="px-3 py-2">{{ j.location }}</td>
+                <td class="px-3 py-2">{{ j.employment_type }}</td>
+                <td class="px-3 py-2">{{ j.level }}</td>
+                <td class="px-3 py-2">
+                  <span class="inline-block px-2 py-0.5 rounded text-xs
+                    {% if j.status == 'Published' %}bg-emerald-100 text-emerald-800
+                    {% elif j.status == 'Draft' %}bg-slate-200 text-slate-700
+                    {% elif j.status == 'Closed' %}bg-amber-100 text-amber-800
+                    {% else %}bg-rose-100 text-rose-800{% endif %}">
+                    {{ j.status }}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-slate-500">
+                  {% if j.updated_at %}{{ j.updated_at.toISOString().slice(0,10) }}{% endif %}
+                </td>
+                <td class="px-3 py-2 text-right">
+                  <a href="/admin/jobs/{{ j.id }}" class="text-blue-600 hover:underline">Edit</a>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="8" class="px-3 py-8 text-center text-slate-500">
+                  No job postings match this filter.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Pagination strip. We render Prev / Next plus the page count. #}
+      {% if totalPages > 1 %}
+        <nav class="mt-4 flex items-center justify-between text-sm">
+          <span class="text-slate-600">
+            Page {{ page + 1 }} of {{ totalPages }} · {{ total }} total
+          </span>
+          <span class="space-x-2">
+            {% if page > 0 %}
+              <a
+                href="/admin/jobs?page={{ page - 1 }}{% if statusFilter %}&status={{ statusFilter }}{% endif %}"
+                class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-100"
+              >Prev</a>
+            {% endif %}
+            {% if page + 1 < totalPages %}
+              <a
+                href="/admin/jobs?page={{ page + 1 }}{% if statusFilter %}&status={{ statusFilter }}{% endif %}"
+                class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-100"
+              >Next</a>
+            {% endif %}
+          </span>
+        </nav>
+      {% endif %}
+    </main>
+  </body>
+</html>

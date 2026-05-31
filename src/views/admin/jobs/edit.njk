@@ -1,0 +1,377 @@
+{# Admin job edit / create form (task 21.3).
+   Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.6, 9.7, 11.4
+   Design: §6 Admin
+
+   Variables:
+     - mode            : 'create' | 'edit'
+     - formAction      : URL the main form posts to
+     - job             : JobPostingDetail or null (when mode==='create')
+     - values          : sticky form values (matches JobPostingDetail shape)
+     - errors          : Record<string, string[]>
+     - generalError    : string or null
+     - saved           : true when ?saved=1 (post-redirect-get flash)
+     - departments     : DepartmentOption[]
+     - employmentTypes : readonly EmploymentType[]
+     - levels          : readonly JobLevel[]
+     - locales         : readonly ['id','en']
+     - actions         : { canPublish, canClose, canArchive, canClone }
+     - session         : { userId, role, canWrite }
+     - csrfToken       : per-session CSRF token
+     - cspNonce        : optional inline-script nonce
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+      {% if mode == 'create' %}New job{% else %}Edit job · {{ values.slug }}{% endif %}
+    </title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin/jobs" class="font-semibold">← Jobs</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">
+          {% if mode == 'create' %}New job posting{% else %}Edit job posting{% endif %}
+        </h1>
+        {% if mode == 'edit' and job %}
+          <span class="inline-block px-2 py-0.5 rounded text-xs
+            {% if job.status == 'Published' %}bg-emerald-100 text-emerald-800
+            {% elif job.status == 'Draft' %}bg-slate-200 text-slate-700
+            {% elif job.status == 'Closed' %}bg-amber-100 text-amber-800
+            {% else %}bg-rose-100 text-rose-800{% endif %}">
+            {{ job.status }}
+          </span>
+        {% endif %}
+      </div>
+
+      {% if saved %}
+        <div class="mb-4 p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          Saved.
+        </div>
+      {% endif %}
+
+      {% if generalError %}
+        <div class="mb-4 p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+          {{ generalError }}
+        </div>
+      {% endif %}
+
+      <form method="POST" action="{{ formAction }}" class="space-y-6">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+        {# ----- Identity & taxonomy ---------------------------------- #}
+        <section class="bg-white border border-slate-200 rounded p-4 space-y-4">
+          <h2 class="font-semibold">Identity</h2>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="slug">
+              Slug
+            </label>
+            <input
+              type="text"
+              id="slug"
+              name="slug"
+              value="{{ values.slug }}"
+              class="w-full border border-slate-300 rounded px-2 py-1 font-mono text-sm"
+              placeholder="senior-data-engineer"
+              autocomplete="off"
+            >
+            {% if errors.slug %}
+              <p class="text-xs text-rose-700 mt-1">{{ errors.slug[0] }}</p>
+            {% else %}
+              <p class="text-xs text-slate-500 mt-1">
+                kebab-case, lowercase letters / digits / hyphens.
+              </p>
+            {% endif %}
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="department_id">
+                Department
+              </label>
+              <select
+                id="department_id"
+                name="department_id"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="">— None —</option>
+                {% for d in departments %}
+                  <option value="{{ d.id }}" {% if values.department_id == d.id|string %}selected{% endif %}>
+                    {{ d.name }}
+                  </option>
+                {% endfor %}
+              </select>
+              {% if errors.department_id %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.department_id[0] }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="location">
+                Location
+              </label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value="{{ values.location }}"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                placeholder="Jakarta"
+              >
+              {% if errors.location %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.location[0] }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="employment_type">
+                Employment type
+              </label>
+              <select
+                id="employment_type"
+                name="employment_type"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="">— Select —</option>
+                {% for t in employmentTypes %}
+                  <option value="{{ t }}" {% if values.employment_type == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+              {% if errors.employment_type %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.employment_type[0] }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="level">
+                Level
+              </label>
+              <select
+                id="level"
+                name="level"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="">— Select —</option>
+                {% for l in levels %}
+                  <option value="{{ l }}" {% if values.level == l %}selected{% endif %}>{{ l }}</option>
+                {% endfor %}
+              </select>
+              {% if errors.level %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.level[0] }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+        {# ----- Salary & deadline ----------------------------------- #}
+        <section class="bg-white border border-slate-200 rounded p-4 space-y-4">
+          <h2 class="font-semibold">Compensation & deadline</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="salary_min">
+                Salary min
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                id="salary_min"
+                name="salary_min"
+                value="{{ values.salary_min }}"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+              >
+              {% if errors.salary_min %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.salary_min[0] }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="salary_max">
+                Salary max
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                id="salary_max"
+                name="salary_max"
+                value="{{ values.salary_max }}"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+              >
+              {% if errors.salary_max %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.salary_max[0] }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="salary_currency">
+                Currency
+              </label>
+              <input
+                type="text"
+                maxlength="3"
+                id="salary_currency"
+                name="salary_currency"
+                value="{{ values.salary_currency }}"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm font-mono uppercase"
+                placeholder="IDR"
+              >
+              {% if errors.salary_currency %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.salary_currency[0] }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="application_deadline">
+              Application deadline
+            </label>
+            <input
+              type="date"
+              id="application_deadline"
+              name="application_deadline"
+              value="{{ values.application_deadline }}"
+              class="border border-slate-300 rounded px-2 py-1 text-sm"
+            >
+            {% if errors.application_deadline %}
+              <p class="text-xs text-rose-700 mt-1">{{ errors.application_deadline[0] }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        {# ----- Translations --------------------------------------- #}
+        <section class="bg-white border border-slate-200 rounded p-4 space-y-6">
+          <h2 class="font-semibold">Content</h2>
+
+          {% if errors.translations %}
+            <p class="text-xs text-rose-700">{{ errors.translations[0] }}</p>
+          {% endif %}
+
+          {% for loc in locales %}
+            <fieldset class="border border-slate-200 rounded p-3">
+              <legend class="text-sm font-medium px-1">
+                {% if loc == 'id' %}Bahasa Indonesia{% else %}English{% endif %}
+              </legend>
+
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm text-slate-700 mb-1" for="title_{{ loc }}">Title</label>
+                  <input
+                    type="text"
+                    id="title_{{ loc }}"
+                    name="title_{{ loc }}"
+                    value="{{ values.translations[loc].title }}"
+                    class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                  >
+                </div>
+                <div>
+                  <label class="block text-sm text-slate-700 mb-1" for="description_{{ loc }}">Description</label>
+                  <textarea
+                    id="description_{{ loc }}"
+                    name="description_{{ loc }}"
+                    rows="4"
+                    class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                  >{{ values.translations[loc].description }}</textarea>
+                </div>
+                <div>
+                  <label class="block text-sm text-slate-700 mb-1" for="requirements_{{ loc }}">Requirements</label>
+                  <textarea
+                    id="requirements_{{ loc }}"
+                    name="requirements_{{ loc }}"
+                    rows="4"
+                    class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                  >{{ values.translations[loc].requirements }}</textarea>
+                </div>
+                <div>
+                  <label class="block text-sm text-slate-700 mb-1" for="responsibilities_{{ loc }}">Responsibilities</label>
+                  <textarea
+                    id="responsibilities_{{ loc }}"
+                    name="responsibilities_{{ loc }}"
+                    rows="4"
+                    class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                  >{{ values.translations[loc].responsibilities }}</textarea>
+                </div>
+              </div>
+            </fieldset>
+          {% endfor %}
+        </section>
+
+        {# ----- Save button --------------------------------------- #}
+        {% if session.canWrite %}
+          <div class="flex items-center gap-2">
+            <button
+              type="submit"
+              class="px-4 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+            >
+              Save
+            </button>
+            <a href="/admin/jobs" class="text-sm text-slate-600 hover:underline">Cancel</a>
+          </div>
+        {% else %}
+          <p class="text-sm text-slate-500">
+            Read-only view — your role does not permit editing this posting.
+          </p>
+        {% endif %}
+      </form>
+
+      {# ----- Status transitions (separate forms) ----------------- #}
+      {% if mode == 'edit' and job and session.canWrite %}
+        <section class="mt-6 bg-white border border-slate-200 rounded p-4 space-y-3">
+          <h2 class="font-semibold">Actions</h2>
+          <div class="flex flex-wrap items-center gap-2">
+            {% if actions.canPublish %}
+              <form method="POST" action="/admin/jobs/{{ job.id }}/publish" class="inline">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                <button class="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-700">
+                  Publish
+                </button>
+              </form>
+            {% endif %}
+
+            {% if actions.canClose %}
+              <form method="POST" action="/admin/jobs/{{ job.id }}/close" class="inline">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                <button class="px-3 py-1.5 rounded bg-amber-600 text-white text-sm hover:bg-amber-700">
+                  Close
+                </button>
+              </form>
+            {% endif %}
+
+            {% if actions.canArchive %}
+              <form method="POST" action="/admin/jobs/{{ job.id }}/archive" class="inline">
+                <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+                <button class="px-3 py-1.5 rounded bg-rose-600 text-white text-sm hover:bg-rose-700">
+                  Archive
+                </button>
+              </form>
+            {% endif %}
+
+            {% if actions.canClone %}
+              <a
+                href="/admin/jobs/{{ job.id }}/clone"
+                class="px-3 py-1.5 rounded bg-slate-200 text-slate-800 text-sm hover:bg-slate-300"
+              >
+                Clone
+              </a>
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
+    </main>
+  </body>
+</html>

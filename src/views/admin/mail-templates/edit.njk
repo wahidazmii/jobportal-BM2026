@@ -1,0 +1,190 @@
+{# Admin mail-template edit / create form (task 36.2).
+   Validates: Requirements 10.7, 12.1
+   Design: §6 Admin, §15 (audit)
+
+   Variables:
+     - mode         : 'create' | 'edit'
+     - formAction   : URL the form posts to (always /admin/mail-templates)
+     - values       : sticky form values { key, locale, subject, body_html, body_text }
+     - errors       : Record<string, string[]>
+     - generalError : string or null
+     - saved        : true when ?saved=1 (post-redirect-get flash)
+     - locales      : readonly ['id','en']
+     - session      : { userId, role, canWrite }
+     - csrfToken    : per-session CSRF token
+     - cspNonce     : optional inline-script nonce
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+      {% if mode == 'create' %}New mail template{% else %}Edit · {{ values.key }} ({{ values.locale }}){% endif %}
+    </title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin/mail-templates" class="font-semibold">← Mail templates</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">
+          {% if mode == 'create' %}New mail template{% else %}Edit mail template{% endif %}
+        </h1>
+      </div>
+
+      {% if saved %}
+        <div class="mb-4 p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          Saved.
+        </div>
+      {% endif %}
+
+      {% if generalError %}
+        <div class="mb-4 p-3 rounded bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+          {{ generalError }}
+        </div>
+      {% endif %}
+
+      <form method="POST" action="{{ formAction }}" class="space-y-6">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+        <section class="bg-white border border-slate-200 rounded p-4 space-y-4">
+          <h2 class="font-semibold">Identity</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="key">
+                Key
+              </label>
+              <input
+                type="text"
+                id="key"
+                name="key"
+                value="{{ values.key }}"
+                class="w-full border border-slate-300 rounded px-2 py-1 font-mono text-sm
+                  {% if mode == 'edit' %}bg-slate-100 text-slate-500{% endif %}"
+                placeholder="application_confirm"
+                autocomplete="off"
+                {% if mode == 'edit' %}readonly{% endif %}
+              >
+              {% if errors.key %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.key[0] }}</p>
+              {% else %}
+                <p class="text-xs text-slate-500 mt-1">
+                  lowercase letters / digits / underscores / hyphens.
+                </p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1" for="locale">
+                Locale
+              </label>
+              <select
+                id="locale"
+                name="locale"
+                class="w-full border border-slate-300 rounded px-2 py-1 text-sm
+                  {% if mode == 'edit' %}bg-slate-100 text-slate-500{% endif %}"
+                {% if mode == 'edit' %}disabled{% endif %}
+              >
+                {% for loc in locales %}
+                  <option value="{{ loc }}" {% if values.locale == loc %}selected{% endif %}>
+                    {% if loc == 'id' %}Bahasa Indonesia (id){% else %}English (en){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+              {# A disabled <select> is not posted; carry the locale in a
+                 hidden field so the upsert keeps the right composite key. #}
+              {% if mode == 'edit' %}
+                <input type="hidden" name="locale" value="{{ values.locale }}">
+              {% endif %}
+              {% if errors.locale %}
+                <p class="text-xs text-rose-700 mt-1">{{ errors.locale[0] }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+        <section class="bg-white border border-slate-200 rounded p-4 space-y-4">
+          <h2 class="font-semibold">Content</h2>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="subject">
+              Subject
+            </label>
+            <input
+              type="text"
+              id="subject"
+              name="subject"
+              value="{{ values.subject }}"
+              maxlength="255"
+              class="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+              placeholder="Your application to {{ '{{ job_title }}' }}"
+            >
+            {% if errors.subject %}
+              <p class="text-xs text-rose-700 mt-1">{{ errors.subject[0] }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="body_html">
+              Body (HTML)
+            </label>
+            <textarea
+              id="body_html"
+              name="body_html"
+              rows="10"
+              class="w-full border border-slate-300 rounded px-2 py-1 text-sm font-mono"
+              placeholder="<p>Hi {{ '{{ applicant_name }}' }} …</p>"
+            >{{ values.body_html }}</textarea>
+            {% if errors.bodyHtml %}
+              <p class="text-xs text-rose-700 mt-1">{{ errors.bodyHtml[0] }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="body_text">
+              Body (plain text, optional)
+            </label>
+            <textarea
+              id="body_text"
+              name="body_text"
+              rows="6"
+              class="w-full border border-slate-300 rounded px-2 py-1 text-sm font-mono"
+              placeholder="Leave blank to auto-derive from the HTML body."
+            >{{ values.body_text }}</textarea>
+            {% if errors.bodyText %}
+              <p class="text-xs text-rose-700 mt-1">{{ errors.bodyText[0] }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        {% if session.canWrite %}
+          <div class="flex items-center gap-2">
+            <button
+              type="submit"
+              class="px-4 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+            >
+              Save
+            </button>
+            <a href="/admin/mail-templates" class="text-sm text-slate-600 hover:underline">Cancel</a>
+          </div>
+        {% else %}
+          <p class="text-sm text-slate-500">
+            Read-only view — your role does not permit editing mail templates.
+          </p>
+        {% endif %}
+      </form>
+    </main>
+  </body>
+</html>

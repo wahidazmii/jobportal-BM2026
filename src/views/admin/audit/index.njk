@@ -1,0 +1,173 @@
+{# Admin audit-log index (task 40.2).
+   Validates: Requirements 12.3
+   Design: §6 Admin (GET /admin/audit — Super_Admin only), §15 (audit)
+
+   Renders the filterable audit log at `GET /admin/audit`. Variables:
+     - session       : { userId, role }
+     - actionTypes   : readonly string[]  (ACTION_TYPES from writer.ts)
+     - filter        : { dateFrom, dateTo, actor, actionType, targetEntity }
+                       — the currently-applied (sticky) filter values
+     - events        : AuditEventRow[]
+     - total         : total row count across pages
+     - page          : current 0-based page index
+     - pageSize      : rows per page
+     - totalPages    : Math.ceil(total / pageSize)  (>= 1)
+     - csrfToken     : per-session CSRF token (43-char base64url)
+     - cspNonce      : nonce for any inline <script> (currently none)
+
+   Tailwind-light, mirroring `views/admin/jobs/index.njk`; the admin theme
+   proper lands in Phase 8.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin · Audit log</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Audit log</h1>
+        <span class="text-sm text-slate-500">{{ total }} events</span>
+      </div>
+
+      {# Filter form — GET so filters are bookmarkable / shareable. #}
+      <form method="GET" action="/admin/audit" class="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">From</span>
+          <input
+            type="date"
+            name="dateFrom"
+            value="{{ filter.dateFrom }}"
+            class="w-full border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">To</span>
+          <input
+            type="date"
+            name="dateTo"
+            value="{{ filter.dateTo }}"
+            class="w-full border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Actor (user id)</span>
+          <input
+            type="number"
+            name="actor"
+            min="1"
+            value="{{ filter.actor }}"
+            class="w-full border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Action type</span>
+          <select name="actionType" class="w-full border border-slate-300 rounded px-2 py-1">
+            <option value="">All</option>
+            {% for a in actionTypes %}
+              <option value="{{ a }}" {% if filter.actionType == a %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Target entity</span>
+          <input
+            type="text"
+            name="targetEntity"
+            value="{{ filter.targetEntity }}"
+            placeholder="application, user, …"
+            class="w-full border border-slate-300 rounded px-2 py-1"
+          >
+        </label>
+        <div class="flex items-center gap-2 lg:col-span-5">
+          <button
+            type="submit"
+            class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+          >
+            Apply filters
+          </button>
+          <a href="/admin/audit" class="text-sm text-blue-600 hover:underline">Clear</a>
+        </div>
+      </form>
+
+      <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="px-3 py-2 text-left">When</th>
+              <th class="px-3 py-2 text-left">Actor</th>
+              <th class="px-3 py-2 text-left">IP</th>
+              <th class="px-3 py-2 text-left">Action</th>
+              <th class="px-3 py-2 text-left">Target</th>
+              <th class="px-3 py-2 text-left">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in events %}
+              <tr class="border-t border-slate-200 align-top">
+                <td class="px-3 py-2 text-slate-500 whitespace-nowrap">
+                  {% if e.occurredAt %}{{ e.occurredAt.toISOString().slice(0,19).replace('T', ' ') }}{% endif %}
+                </td>
+                <td class="px-3 py-2">
+                  {% if e.actorUserId %}#{{ e.actorUserId }}{% else %}<span class="text-slate-400">system</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 font-mono text-xs">{{ e.actorIp or '—' }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ e.actionType }}</td>
+                <td class="px-3 py-2">
+                  {{ e.targetEntity }}{% if e.targetId %} #{{ e.targetId }}{% endif %}
+                </td>
+                <td class="px-3 py-2 text-xs text-slate-600">
+                  {% if e.details %}<code>{{ e.details | dump }}</code>{% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="6" class="px-3 py-8 text-center text-slate-500">
+                  No audit events match this filter.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Pagination strip — Prev / Next preserve the active filters. #}
+      {% if totalPages > 1 %}
+        {% set qs %}{% if filter.dateFrom %}&dateFrom={{ filter.dateFrom }}{% endif %}{% if filter.dateTo %}&dateTo={{ filter.dateTo }}{% endif %}{% if filter.actor %}&actor={{ filter.actor }}{% endif %}{% if filter.actionType %}&actionType={{ filter.actionType }}{% endif %}{% if filter.targetEntity %}&targetEntity={{ filter.targetEntity }}{% endif %}{% endset %}
+        <nav class="mt-4 flex items-center justify-between text-sm">
+          <span class="text-slate-600">
+            Page {{ page + 1 }} of {{ totalPages }} · {{ total }} total
+          </span>
+          <span class="space-x-2">
+            {% if page > 0 %}
+              <a
+                href="/admin/audit?page={{ page - 1 }}{{ qs }}"
+                class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-100"
+              >Prev</a>
+            {% endif %}
+            {% if page + 1 < totalPages %}
+              <a
+                href="/admin/audit?page={{ page + 1 }}{{ qs }}"
+                class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-100"
+              >Next</a>
+            {% endif %}
+          </span>
+        </nav>
+      {% endif %}
+    </main>
+  </body>
+</html>

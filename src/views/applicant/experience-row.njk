@@ -1,0 +1,177 @@
+{# Single experience row fragment (task 16.3).
+   Validates: Requirements 4.3
+   Design: §6 Applicant_Area
+
+   Renders one read-only entry with edit/remove controls. The parent
+   `applicant/experience-section.njk` includes this template inside the
+   list loop. The `editingId` local can be set to surface the inline
+   edit form for a specific row when the parent re-renders the section
+   after a GET .../edit request.
+
+   Inputs:
+     - locale          : 'id' | 'en'
+     - csrfToken       : string
+     - exp             : ExperienceRecord
+     - editingId       : number | null
+     - editForm        : { values, errors, generalError } | null
+     - employmentTypes : readonly string[] (EMPLOYMENT_TYPES)
+     - t               : translation table from the parent (already resolved)
+#}
+
+{% if not t %}
+  {% set tr = {
+    id: {
+      edit: 'Ubah', cancel: 'Batal', remove: 'Hapus',
+      company: 'Perusahaan', title: 'Jabatan',
+      employmentType: 'Tipe Pekerjaan',
+      startDate: 'Tanggal Mulai', endDate: 'Tanggal Selesai',
+      isCurrent: 'Posisi saat ini', description: 'Deskripsi tugas',
+      submit: 'Simpan', confirmRemove: 'Hapus pengalaman ini?'
+    },
+    en: {
+      edit: 'Edit', cancel: 'Cancel', remove: 'Remove',
+      company: 'Company', title: 'Title',
+      employmentType: 'Employment type',
+      startDate: 'Start date', endDate: 'End date',
+      isCurrent: 'Current position', description: 'Responsibilities',
+      submit: 'Save', confirmRemove: 'Remove this experience entry?'
+    }
+  } %}
+  {% set t = tr[locale] or tr.id %}
+{% endif %}
+
+<li class="profile-experience__row" id="experience-row-{{ exp.id }}" data-id="{{ exp.id }}">
+  {% if editingId and editingId == exp.id %}
+    {% set form = editForm or { values: exp, errors: {}, generalError: null } %}
+    <form
+      class="profile-experience__edit"
+      method="post"
+      action="/{{ locale }}/me/profile/experience/{{ exp.id }}/edit"
+      hx-post="/{{ locale }}/me/profile/experience/{{ exp.id }}/edit"
+      hx-target="#experience-section"
+      hx-swap="outerHTML"
+      hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      {% if form.generalError %}
+        <div class="alert alert-error" role="alert">{{ form.generalError }}</div>
+      {% endif %}
+
+      <div class="field">
+        <label for="edit-{{ exp.id }}-company">{{ t.company }}</label>
+        <input type="text" id="edit-{{ exp.id }}-company" name="company"
+               required maxlength="150"
+               value="{{ form.values.company | default('') }}">
+        {% if form.errors.company %}
+          <ul class="field-errors">{% for m in form.errors.company %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ exp.id }}-title">{{ t.title }}</label>
+        <input type="text" id="edit-{{ exp.id }}-title" name="title"
+               required maxlength="100"
+               value="{{ form.values.title | default('') }}">
+        {% if form.errors.title %}
+          <ul class="field-errors">{% for m in form.errors.title %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ exp.id }}-employment_type">{{ t.employmentType }}</label>
+        <select id="edit-{{ exp.id }}-employment_type" name="employment_type" required>
+          {% for et in employmentTypes %}
+            <option value="{{ et }}" {% if form.values.employment_type == et %}selected{% endif %}>
+              {{ et }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if form.errors.employment_type %}
+          <ul class="field-errors">{% for m in form.errors.employment_type %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ exp.id }}-start_date">{{ t.startDate }}</label>
+        <input type="date" id="edit-{{ exp.id }}-start_date" name="start_date"
+               required value="{{ form.values.start_date | default('') }}">
+        {% if form.errors.start_date %}
+          <ul class="field-errors">{% for m in form.errors.start_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ exp.id }}-end_date">{{ t.endDate }}</label>
+        <input type="date" id="edit-{{ exp.id }}-end_date" name="end_date"
+               value="{{ form.values.end_date | default('') }}">
+        {% if form.errors.end_date %}
+          <ul class="field-errors">{% for m in form.errors.end_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field field-checkbox">
+        <label>
+          <input type="checkbox" name="is_current" value="on"
+                 {% if form.values.is_current %}checked{% endif %}>
+          {{ t.isCurrent }}
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ exp.id }}-description">{{ t.description }}</label>
+        <textarea id="edit-{{ exp.id }}-description" name="description"
+                  rows="3" maxlength="1000">{{ form.values.description | default('') }}</textarea>
+        {% if form.errors.description %}
+          <ul class="field-errors">{% for m in form.errors.description %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field-actions">
+        <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+        <a class="btn btn-link"
+           href="/{{ locale }}/me/profile/experience"
+           hx-get="/{{ locale }}/me/profile/experience"
+           hx-target="#experience-section"
+           hx-swap="outerHTML">{{ t.cancel }}</a>
+      </div>
+    </form>
+  {% else %}
+    <article class="profile-experience__view">
+      <h3 class="profile-experience__company">{{ exp.company }}</h3>
+      <p class="profile-experience__title">{{ exp.title }} — {{ exp.employment_type }}</p>
+      <p class="profile-experience__dates">
+        {{ exp.start_date }}
+        {% if exp.is_current %}
+          — {{ t.isCurrent }}
+        {% elif exp.end_date %}
+          — {{ exp.end_date }}
+        {% endif %}
+      </p>
+      {% if exp.description %}
+        <p class="profile-experience__description">{{ exp.description }}</p>
+      {% endif %}
+
+      <div class="profile-experience__actions">
+        <a class="btn btn-link"
+           href="/{{ locale }}/me/profile/experience/{{ exp.id }}/edit"
+           hx-get="/{{ locale }}/me/profile/experience/{{ exp.id }}/edit"
+           hx-target="#experience-section"
+           hx-swap="outerHTML">{{ t.edit }}</a>
+
+        <form method="post"
+              action="/{{ locale }}/me/profile/experience/{{ exp.id }}/delete"
+              hx-post="/{{ locale }}/me/profile/experience/{{ exp.id }}/delete"
+              hx-target="#experience-section"
+              hx-swap="outerHTML"
+              hx-confirm="{{ t.confirmRemove }}"
+              hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+              class="profile-experience__delete">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <button type="submit" class="btn btn-danger">{{ t.remove }}</button>
+        </form>
+      </div>
+    </article>
+  {% endif %}
+</li>

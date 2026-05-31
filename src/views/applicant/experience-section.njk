@@ -1,0 +1,184 @@
+{# Experience section fragment for the applicant profile page (task 16.3).
+   Validates: Requirements 4.3
+   Design: §6 Applicant_Area
+
+   Renders the entire work-experience panel: the list of existing
+   entries (each as its own row fragment) plus the "add new" form.
+   htmx targets this section's outer wrapper so a successful
+   create/edit/delete can swap the panel in place without a full
+   page reload.
+
+   Inputs (resolved from the parent template's locals):
+     - locale          : 'id' | 'en'
+     - csrfToken       : string                        (for forms / hx-headers)
+     - experiences     : ExperienceRecord[]            (list from listExperience)
+     - capReached      : boolean                       (experiences.length >= 30)
+     - employmentTypes : readonly string[]             (EMPLOYMENT_TYPES)
+     - addForm         : { values, errors, generalError } | null
+                          (set when re-rendering with validation errors)
+#}
+
+{% set tr = {
+  id: {
+    title: 'Pengalaman Kerja',
+    sectionHint: 'Maksimal 30 entri. Urut dari yang terbaru.',
+    counter: 'Entri',
+    of: 'dari',
+    capReached: 'Anda telah mencapai batas 30 entri pengalaman. Hapus salah satu untuk menambah yang baru.',
+    empty: 'Belum ada riwayat pengalaman kerja.',
+    addTitle: 'Tambah Pengalaman',
+    company: 'Perusahaan',
+    title: 'Jabatan',
+    employmentType: 'Tipe Pekerjaan',
+    startDate: 'Tanggal Mulai',
+    endDate: 'Tanggal Selesai',
+    isCurrent: 'Posisi saat ini',
+    description: 'Deskripsi tugas',
+    submit: 'Simpan',
+    edit: 'Ubah',
+    cancel: 'Batal',
+    remove: 'Hapus',
+    confirmRemove: 'Hapus pengalaman ini?'
+  },
+  en: {
+    title: 'Work Experience',
+    sectionHint: 'Up to 30 entries. Newest first.',
+    counter: 'Entries',
+    of: 'of',
+    capReached: 'You have reached the limit of 30 experience entries. Remove one to add a new entry.',
+    empty: 'No work experience entries yet.',
+    addTitle: 'Add Experience',
+    company: 'Company',
+    title: 'Title',
+    employmentType: 'Employment type',
+    startDate: 'Start date',
+    endDate: 'End date',
+    isCurrent: 'Current position',
+    description: 'Responsibilities',
+    submit: 'Save',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    remove: 'Remove',
+    confirmRemove: 'Remove this experience entry?'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% set form = addForm or { values: {}, errors: {}, generalError: null } %}
+
+<section
+  id="experience-section"
+  class="profile-experience"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <header class="profile-experience__header">
+    <h2>{{ t.title }}</h2>
+    <p class="profile-experience__hint">{{ t.sectionHint }}</p>
+    <p class="profile-experience__counter" aria-live="polite">
+      {{ t.counter }}: <strong>{{ experiences.length }}</strong> {{ t.of }} 30
+    </p>
+  </header>
+
+  {% if form.generalError %}
+    <div class="alert alert-error" role="alert">{{ form.generalError }}</div>
+  {% endif %}
+
+  {% if experiences.length == 0 %}
+    <p class="profile-experience__empty">{{ t.empty }}</p>
+  {% else %}
+    <ul class="profile-experience__list">
+      {% for exp in experiences %}
+        {% include "applicant/experience-row.njk" %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if capReached %}
+    <p class="alert alert-warn" role="status">{{ t.capReached }}</p>
+  {% else %}
+    <form
+      class="profile-experience__add"
+      method="post"
+      action="/{{ locale }}/me/profile/experience"
+      hx-post="/{{ locale }}/me/profile/experience"
+      hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <h3>{{ t.addTitle }}</h3>
+
+      <div class="field">
+        <label for="add-exp-company">{{ t.company }}</label>
+        <input type="text" id="add-exp-company" name="company"
+               required maxlength="150"
+               value="{{ form.values.company | default('') }}">
+        {% if form.errors.company %}
+          <ul class="field-errors">{% for m in form.errors.company %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-exp-title">{{ t.title }}</label>
+        <input type="text" id="add-exp-title" name="title"
+               required maxlength="100"
+               value="{{ form.values.title | default('') }}">
+        {% if form.errors.title %}
+          <ul class="field-errors">{% for m in form.errors.title %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-exp-employment_type">{{ t.employmentType }}</label>
+        <select id="add-exp-employment_type" name="employment_type" required>
+          <option value="">— —</option>
+          {% for et in employmentTypes %}
+            <option value="{{ et }}" {% if form.values.employment_type == et %}selected{% endif %}>
+              {{ et }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if form.errors.employment_type %}
+          <ul class="field-errors">{% for m in form.errors.employment_type %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-exp-start_date">{{ t.startDate }}</label>
+        <input type="date" id="add-exp-start_date" name="start_date"
+               required value="{{ form.values.start_date | default('') }}">
+        {% if form.errors.start_date %}
+          <ul class="field-errors">{% for m in form.errors.start_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="add-exp-end_date">{{ t.endDate }}</label>
+        <input type="date" id="add-exp-end_date" name="end_date"
+               value="{{ form.values.end_date | default('') }}">
+        {% if form.errors.end_date %}
+          <ul class="field-errors">{% for m in form.errors.end_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field field-checkbox">
+        <label>
+          <input type="checkbox" name="is_current" value="on"
+                 {% if form.values.is_current %}checked{% endif %}>
+          {{ t.isCurrent }}
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="add-exp-description">{{ t.description }}</label>
+        <textarea id="add-exp-description" name="description"
+                  rows="3" maxlength="1000">{{ form.values.description | default('') }}</textarea>
+        {% if form.errors.description %}
+          <ul class="field-errors">{% for m in form.errors.description %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+    </form>
+  {% endif %}
+</section>

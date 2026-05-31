@@ -1,0 +1,53 @@
+{# Admin_Console 403 Forbidden page (task 39.1).
+   Validates: Requirements 11.6 (RBAC denial → HTTP 403 + AccessDenied audit)
+   Design   : §14.3 (Denial), §6 Admin
+
+   Rendered by `requirePolicy(...)` (src/modules/security/policies.ts) when
+   an authenticated internal user (Super_Admin / HR / Department_Head) hits
+   a route whose §14.1 policy does not grant their role. The guard has
+   already recorded an `access_denied` audit event before this renders.
+
+   Standalone document (no shared admin layout exists yet) — mirrors the
+   header pattern of `admin/jobs/kanban.njk`.
+
+   Inputs:
+     - role     : the session role that was denied (string)
+     - policy   : the policy name that gated the route (string)
+     - cspNonce : nonce passed through from the route (may be undefined)
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>403 · Akses Ditolak</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/admin/jobs" class="font-semibold">PT Buana Megah · Admin</a>
+        <span class="text-sm text-slate-500">{{ role }}</span>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-16 text-center">
+      <p class="text-6xl font-bold text-slate-300">403</p>
+      <h1 class="mt-4 text-2xl font-semibold">Akses ditolak</h1>
+      <p class="mt-3 text-slate-600">
+        Peran <span class="font-mono font-medium">{{ role }}</span> tidak
+        memiliki izin untuk tindakan ini.
+      </p>
+      <p class="mt-1 text-sm text-slate-500">
+        You don't have permission to perform this action.
+      </p>
+      <p class="mt-8">
+        <a
+          href="/admin/jobs"
+          class="inline-block rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-700"
+        >← Kembali ke daftar lowongan</a>
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,95 @@
+{# Skills section fragment for the applicant profile page (task 16.4).
+   Validates: Requirements 4.4
+   Design: §6 Applicant_Area, §10.1
+
+   Renders the skill panel: the list of currently-assigned skills as
+   chips, plus an autocomplete search field that hits the FULLTEXT
+   `ft_skill_label` index. htmx swaps `#skills-section` after every
+   toggle so the cap counter and chip list stay in sync without a full
+   page reload.
+
+   Inputs (resolved from the parent template's locals):
+     - locale       : 'id' | 'en'
+     - csrfToken    : string
+     - assigned     : SkillTag[]   (currently assigned to the applicant)
+     - capReached   : boolean      (assigned.length >= 30)
+     - generalError : string | null
+#}
+
+{% set tr = {
+  id: {
+    title: 'Skill / Keahlian',
+    sectionHint: 'Maksimal 30 skill. Cari di bawah lalu klik untuk menambah.',
+    counter: 'Skill',
+    of: 'dari',
+    capReached: 'Anda telah mencapai batas 30 skill. Hapus salah satu untuk menambah yang baru.',
+    empty: 'Belum ada skill terpilih.',
+    searchTitle: 'Cari skill',
+    searchPlaceholder: 'Mis. JavaScript, AutoCAD, Excel ...',
+    confirmRemove: 'Hapus skill ini?',
+    remove: 'Hapus'
+  },
+  en: {
+    title: 'Skills',
+    sectionHint: 'Up to 30 skills. Search below and click to add.',
+    counter: 'Skills',
+    of: 'of',
+    capReached: 'You have reached the limit of 30 skills. Remove one to add a new one.',
+    empty: 'No skills selected yet.',
+    searchTitle: 'Search skills',
+    searchPlaceholder: 'e.g. JavaScript, AutoCAD, Excel ...',
+    confirmRemove: 'Remove this skill?',
+    remove: 'Remove'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+<section
+  id="skills-section"
+  class="profile-skill"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <header class="profile-skill__header">
+    <h2>{{ t.title }}</h2>
+    <p class="profile-skill__hint">{{ t.sectionHint }}</p>
+    <p class="profile-skill__counter" aria-live="polite">
+      {{ t.counter }}: <strong>{{ assigned.length }}</strong> {{ t.of }} 30
+    </p>
+  </header>
+
+  {% if generalError %}
+    <div class="alert alert-error" role="alert">{{ generalError }}</div>
+  {% endif %}
+
+  {% if assigned.length == 0 %}
+    <p class="profile-skill__empty">{{ t.empty }}</p>
+  {% else %}
+    <ul class="profile-skill__chips" aria-label="{{ t.title }}">
+      {% for skill in assigned %}
+        {% include "applicant/skill-chip.njk" %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if capReached %}
+    <p class="alert alert-warn" role="status">{{ t.capReached }}</p>
+  {% else %}
+    <div class="profile-skill__search">
+      <label for="skill-search">{{ t.searchTitle }}</label>
+      <input
+        type="search"
+        id="skill-search"
+        name="q"
+        autocomplete="off"
+        placeholder="{{ t.searchPlaceholder }}"
+        hx-get="/{{ locale }}/me/profile/skills/search"
+        hx-trigger="keyup changed delay:300ms, search"
+        hx-target="#skill-search-results"
+        hx-swap="outerHTML"
+        hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+      >
+      <ul id="skill-search-results" class="profile-skill__search-results" role="listbox"></ul>
+    </div>
+  {% endif %}
+</section>

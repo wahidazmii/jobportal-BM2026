@@ -1,0 +1,43 @@
+{# Single skill chip fragment (task 16.4).
+   Validates: Requirements 4.4
+   Design: §6 Applicant_Area, §10.1
+
+   Renders one assigned skill as a removable chip. Submitting the
+   inline form re-toggles the same skill via
+   `POST /:locale/me/profile/skills/toggle`, which DELETEs the link
+   row and returns the refreshed `applicant/skill-section.njk`.
+
+   Inputs:
+     - locale     : 'id' | 'en'
+     - csrfToken  : string
+     - skill      : SkillTag (id, label, active)
+     - t          : translation table from the parent (already resolved)
+#}
+
+{% if not t %}
+  {% set tr = {
+    id: { remove: 'Hapus', confirmRemove: 'Hapus skill ini?' },
+    en: { remove: 'Remove', confirmRemove: 'Remove this skill?' }
+  } %}
+  {% set t = tr[locale] or tr.id %}
+{% endif %}
+
+<li class="profile-skill__chip" data-skill-id="{{ skill.id }}">
+  <span class="profile-skill__label">{{ skill.label }}</span>
+  <form
+    method="post"
+    action="/{{ locale }}/me/profile/skills/toggle"
+    hx-post="/{{ locale }}/me/profile/skills/toggle"
+    hx-target="#skills-section"
+    hx-swap="outerHTML"
+    hx-confirm="{{ t.confirmRemove }}"
+    hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+    class="profile-skill__remove"
+  >
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    <input type="hidden" name="skill_id" value="{{ skill.id }}">
+    <button type="submit" class="btn btn-link btn-sm" aria-label="{{ t.remove }} {{ skill.label }}">
+      ×
+    </button>
+  </form>
+</li>

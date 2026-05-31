@@ -1,0 +1,91 @@
+{# Applicant consent page (task 46.1).
+   Validates: Requirements 16.1, 16.6
+   Design: §6 Applicant_Area (consent flow)
+
+   Shown when the consent-guard detects that the authenticated Applicant
+   has not yet accepted the current privacy policy version. The page
+   displays the policy version and an "I Accept" button that POSTs back
+   to `POST /:locale/me/consent`.
+
+   Inputs (passed by `src/routes/applicant.ts`):
+     - locale        : 'id' | 'en'
+     - policyVersion : string   — the current policy version (e.g. '1.0')
+     - csrfToken     : string   — 43-char base64url session token
+     - cspNonce      : string   — for any inline <script> tags
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Persetujuan Kebijakan Privasi',
+    intro: 'Kebijakan privasi kami telah diperbarui. Harap tinjau dan setujui versi terbaru untuk melanjutkan menggunakan layanan kami.',
+    versionLabel: 'Versi kebijakan',
+    policyHeading: 'Kebijakan Privasi PT Buana Megah',
+    policyBody: 'Dengan menggunakan portal karir ini, Anda menyetujui pengumpulan dan pemrosesan data pribadi Anda sesuai dengan Undang-Undang Perlindungan Data Pribadi (UU PDP) Republik Indonesia. Data yang kami kumpulkan meliputi informasi profil, riwayat lamaran, dan preferensi pencarian kerja. Data Anda digunakan semata-mata untuk keperluan rekrutmen dan tidak akan dibagikan kepada pihak ketiga tanpa persetujuan Anda.',
+    privacyLink: 'Baca kebijakan privasi lengkap',
+    acceptBtn: 'Saya Menyetujui',
+    declineNote: 'Jika Anda tidak menyetujui, Anda tidak dapat menggunakan fitur Applicant Area. Anda dapat keluar dari akun Anda kapan saja.'
+  },
+  en: {
+    title: 'Privacy Policy Consent',
+    intro: 'Our privacy policy has been updated. Please review and accept the latest version to continue using our services.',
+    versionLabel: 'Policy version',
+    policyHeading: 'PT Buana Megah Privacy Policy',
+    policyBody: 'By using this career portal, you agree to the collection and processing of your personal data in accordance with the Indonesian Personal Data Protection Law (UU PDP). The data we collect includes profile information, application history, and job search preferences. Your data is used solely for recruitment purposes and will not be shared with third parties without your consent.',
+    privacyLink: 'Read the full privacy policy',
+    acceptBtn: 'I Accept',
+    declineNote: 'If you do not accept, you will not be able to use the Applicant Area features. You may log out of your account at any time.'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="consent-page max-w-2xl mx-auto px-4 py-10">
+  <h1 class="text-2xl md:text-3xl font-semibold mb-2">{{ t.title }}</h1>
+  <p class="text-slate-600 mb-6">{{ t.intro }}</p>
+
+  <p class="text-sm text-slate-500 mb-6">
+    <span class="font-medium">{{ t.versionLabel }}:</span>
+    <span class="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-700">{{ policyVersion }}</span>
+  </p>
+
+  <article
+    class="consent-policy bg-white border border-slate-200 rounded shadow-sm p-6 mb-6"
+    aria-label="{{ t.policyHeading }}"
+  >
+    <h2 class="text-lg font-semibold mb-3">{{ t.policyHeading }}</h2>
+    <p class="text-slate-700 leading-relaxed mb-4">{{ t.policyBody }}</p>
+    <p>
+      <a
+        href="/{{ locale }}/about#privacy"
+        class="text-blue-600 hover:underline text-sm"
+        target="_blank"
+        rel="noopener noreferrer"
+      >{{ t.privacyLink }}</a>
+    </p>
+  </article>
+
+  {# Accept form — POST /:locale/me/consent
+     CSRF token is included as a hidden field per Req 15.2.
+     The form uses the standard Post/Redirect/Get pattern:
+     on success the handler redirects to /:locale/me. #}
+  <form
+    method="POST"
+    action="/{{ locale }}/me/consent"
+    class="consent-form"
+  >
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <button
+      type="submit"
+      class="btn btn-primary inline-flex items-center px-6 py-3 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+    >
+      {{ t.acceptBtn }}
+    </button>
+  </form>
+
+  <p class="text-sm text-slate-500 mt-4">{{ t.declineNote }}</p>
+</section>
+{% endblock %}

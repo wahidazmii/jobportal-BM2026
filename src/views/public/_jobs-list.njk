@@ -1,0 +1,129 @@
+{# Public job-list partial (task 22.2).
+   Validates: Requirements 2.3, 6.1, 6.2, 6.3 (Design §4.3, §6 Public).
+
+   Rendered both as a fragment when htmx swaps the result panel
+   (`HX-Request: true`) AND as the embedded list inside `jobs.njk`. The
+   container ID `#jobs-results` is the htmx swap target — keep it in
+   sync with the form's `hx-target` over in `jobs.njk`.
+
+   Variables provided by `src/routes/public.ts`:
+     - locale     : 'id' | 'en'
+     - rows       : SearchResultRow[]
+     - total      : number
+     - page       : number  (0-based)
+     - pageSize   : number
+     - totalPages : number  (>= 1)
+     - filter     : current SearchFilter (used to preserve state in
+                    pagination links)
+#}
+{% set listTr = {
+  id: {
+    empty: 'Tidak ada lowongan yang cocok dengan kriteria pencarian.',
+    countSingular: 'lowongan ditemukan',
+    countPlural: 'lowongan ditemukan',
+    location: 'Lokasi',
+    employmentType: 'Tipe',
+    level: 'Level',
+    deadline: 'Batas lamaran',
+    viewDetail: 'Lihat detail',
+    page: 'Halaman',
+    of: 'dari',
+    prev: 'Sebelumnya',
+    next: 'Berikutnya'
+  },
+  en: {
+    empty: 'No jobs match your search.',
+    countSingular: 'job found',
+    countPlural: 'jobs found',
+    location: 'Location',
+    employmentType: 'Type',
+    level: 'Level',
+    deadline: 'Apply by',
+    viewDetail: 'View details',
+    page: 'Page',
+    of: 'of',
+    prev: 'Previous',
+    next: 'Next'
+  }
+} %}
+{% set lt = listTr[locale] or listTr.id %}
+
+{# Re-emit the active filter state as a query string for pagination
+   links so Prev / Next preserve every filter the user applied. #}
+{% set filterQs %}
+  {%- if keyword -%}&keyword={{ keyword | urlencode }}{%- endif -%}
+  {%- for loc in locations -%}&location={{ loc | urlencode }}{%- endfor -%}
+  {%- for et in employmentTypes -%}&employment_type={{ et | urlencode }}{%- endfor -%}
+  {%- for lv in levels -%}&level={{ lv | urlencode }}{%- endfor -%}
+  {%- for d in departments -%}&department_id={{ d }}{%- endfor -%}
+{% endset %}
+
+<div id="jobs-results" class="jobs-results">
+  <p class="text-sm text-slate-600 mb-3">
+    <strong>{{ total }}</strong>
+    {% if total == 1 %}{{ lt.countSingular }}{% else %}{{ lt.countPlural }}{% endif %}
+  </p>
+
+  {% if rows and rows.length > 0 %}
+    <ul class="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0">
+      {% for job in rows %}
+        <li class="bg-white border border-slate-200 rounded shadow-sm p-4 flex flex-col">
+          <h3 class="text-lg font-medium mb-2">
+            <a href="/{{ locale }}/jobs/{{ job.slug }}"
+               class="text-blue-700 hover:underline">
+              {{ job.title or job.slug }}
+            </a>
+          </h3>
+          <dl class="text-sm text-slate-600 space-y-1 mb-4">
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ lt.location }}:</dt>
+              <dd>{{ job.location }}</dd>
+            </div>
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ lt.employmentType }}:</dt>
+              <dd>{{ job.employment_type }}</dd>
+            </div>
+            <div class="flex gap-2">
+              <dt class="font-medium text-slate-500">{{ lt.level }}:</dt>
+              <dd>{{ job.level }}</dd>
+            </div>
+            {% if job.application_deadline %}
+              <div class="flex gap-2">
+                <dt class="font-medium text-slate-500">{{ lt.deadline }}:</dt>
+                <dd>{{ job.application_deadline }}</dd>
+              </div>
+            {% endif %}
+          </dl>
+          <a href="/{{ locale }}/jobs/{{ job.slug }}"
+             class="mt-auto text-sm text-blue-600 hover:underline">
+            {{ lt.viewDetail }} &rarr;
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-slate-500 py-8 text-center">{{ lt.empty }}</p>
+  {% endif %}
+
+  {% if totalPages > 1 %}
+    <nav class="mt-6 flex items-center justify-between text-sm">
+      <span class="text-slate-600">
+        {{ lt.page }} {{ page + 1 }} {{ lt.of }} {{ totalPages }}
+      </span>
+      <span class="space-x-2">
+        {% if page > 0 %}
+          <a href="/{{ locale }}/jobs?page={{ page - 1 }}{{ filterQs | safe }}"
+             class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-100">
+            {{ lt.prev }}
+          </a>
+        {% endif %}
+        {% if page + 1 < totalPages %}
+          <a href="/{{ locale }}/jobs?page={{ page + 1 }}{{ filterQs | safe }}"
+             class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-100">
+            {{ lt.next }}
+          </a>
+        {% endif %}
+      </span>
+    </nav>
+  {% endif %}
+</div>

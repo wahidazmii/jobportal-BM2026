@@ -1,0 +1,115 @@
+{# Admin kanban board (task 29.1).
+   Validates: Requirement 10.1 (six columns in canonical order)
+   Design   : §4.2 (htmx kanban pattern), §6 Admin
+
+   Inputs:
+     - session    : { userId, role, canWrite }
+     - job        : JobPostingDetail (for the page header)
+     - columns    : Array<{ stage, label, rows: KanbanCard[] }>
+                    Always six entries in the canonical column order.
+                    Stages with no rows render the empty-state placeholder.
+     - csrfToken  : per-session CSRF token (read by the htmx hook on each card)
+     - cspNonce   : nonce for the inline bootstrap script (none today, but
+                    the layout passes it through for symmetry with other
+                    admin views).
+
+   Wiring note:
+     The drag-handler script (`/assets/js/sortable.min.js`) is loaded at
+     the bottom of <body>. The actual SortableJS `new Sortable(...)`
+     call that fires `htmx.ajax('POST', ...)` on drop ships in
+     task 29.2 — together with the `/api/applications/:id/stage`
+     endpoint. This template only LAYS DOWN the hook attributes
+     (`data-sortable` on each `<ul>`, `data-stage` carrying the
+     destination, `hx-post` on each card) so 29.2 wires up cleanly
+     without touching the markup.
+
+     Department_Head sessions are read-only (Req 11.4): they see the
+     board but cannot drag — `canWrite` flips off the `data-sortable`
+     attribute on the column lists and the `hx-post` attributes on the
+     cards.
+#}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kanban · {{ job.slug }}</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+    <meta name="csrf-token" content="{{ csrfToken }}">
+    <link rel="stylesheet" href="/assets/css/app.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="/admin/jobs/{{ job.id }}" class="font-semibold">← Back to job</a>
+          <span class="text-slate-400">·</span>
+          <span class="font-mono text-sm text-slate-600">{{ job.slug }}</span>
+        </div>
+        <span class="text-sm text-slate-500">
+          {{ session.role }} · #{{ session.userId }}
+        </span>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+      {# Expose the write flag at the top level so the included
+         `partials/kanban-card.njk` can see it as a bare `canWrite`.
+         Nunjucks `{% include %}` shares this template's context, but
+         the partial reads `canWrite` (not `session.canWrite`), so we
+         alias it here once instead of threading it through every
+         card include. Read-only Department_Head sessions resolve to
+         false and the partial strips the htmx hooks accordingly. #}
+      {% set canWrite = session.canWrite %}
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold">Pipeline</h1>
+        {% if not session.canWrite %}
+          <span class="inline-block px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-xs">
+            Read-only
+          </span>
+        {% endif %}
+      </div>
+
+      {# Six-column grid. On narrow viewports the columns scroll
+         horizontally; the grid below collapses to a horizontal-scroll
+         flex layout via Tailwind's `overflow-x-auto`. #}
+      <div class="kanban-board grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto">
+        {% for col in columns %}
+          <section
+            class="kanban-column bg-slate-100 rounded p-2 flex flex-col min-h-[24rem]"
+            data-stage="{{ col.stage }}"
+          >
+            <header class="flex items-center justify-between mb-2 px-1">
+              <h2 class="text-sm font-semibold text-slate-700">{{ col.label }}</h2>
+              <span class="inline-block px-1.5 py-0.5 rounded bg-white text-xs text-slate-600 border border-slate-200">
+                {{ col.rows.length }}
+              </span>
+            </header>
+
+            <ul
+              class="kanban-list flex-1 overflow-y-auto pr-1"
+              {% if session.canWrite %}data-sortable{% endif %}
+              data-stage="{{ col.stage }}"
+            >
+              {% for card in col.rows %}
+                {% include "partials/kanban-card.njk" %}
+              {% else %}
+                <li class="kanban-empty text-xs text-slate-400 italic px-2 py-3">
+                  No applications
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+      </div>
+    </main>
+
+    {# SortableJS is vendored at /src/public/js/sortable.min.js (task 2.2)
+       and copied into /public_html/assets/js by the build step. The
+       drag-and-drop wiring that calls htmx on drop lands with task
+       29.2; we still load the library here so 29.2's bootstrap code
+       can find it on first visit without a second deploy. #}
+    <script src="/assets/js/sortable.min.js" defer{% if cspNonce %} nonce="{{ cspNonce }}"{% endif %}></script>
+    <script src="/assets/js/htmx.min.js" defer{% if cspNonce %} nonce="{{ cspNonce }}"{% endif %}></script>
+  </body>
+</html>

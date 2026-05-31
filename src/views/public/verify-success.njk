@@ -1,0 +1,40 @@
+{# Email verification success page (task 9.3).
+   Validates: Requirement 3.3 — rendered after the verify endpoint
+   atomically marks the token used and the user active. The page
+   directs the visitor to /:locale/login so they can sign in with the
+   credentials they registered with.
+
+   Inputs:
+     - locale  : 'id' | 'en'
+     - cspNonce: string (for any inline scripts the layout exposes)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Email Berhasil Diverifikasi',
+    body: 'Akun Anda sudah aktif. Silakan masuk untuk melanjutkan melamar pekerjaan dan memantau status aplikasi Anda.',
+    loginCta: 'Masuk ke akun saya',
+    backLink: 'Kembali ke beranda'
+  },
+  en: {
+    title: 'Email Verified',
+    body: 'Your account is now active. Please sign in to continue applying for jobs and tracking your applications.',
+    loginCta: 'Sign in to my account',
+    backLink: 'Back to home'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="auth-success">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.body }}</p>
+  <p>
+    <a class="btn btn-primary" href="/{{ locale }}/login">{{ t.loginCta }}</a>
+  </p>
+  <p><a href="/{{ locale }}/">{{ t.backLink }}</a></p>
+</section>
+{% endblock %}

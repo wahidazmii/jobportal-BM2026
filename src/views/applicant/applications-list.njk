@@ -1,0 +1,152 @@
+{# Applicant applications list (task 27.1).
+   Validates: Requirements 5.6
+   Design: §6 Applicant_Area
+
+   Renders the page at `GET /:locale/me/applications`. Shows every
+   application owned by the authenticated applicant, sorted by
+   submission date descending (the route layer hands the rows in the
+   correct order; the template only renders).
+
+   Inputs:
+     - locale       : 'id' | 'en'
+     - rows         : ApplicationListRow[]
+     - total        : number  (total rows; used for the empty state)
+     - page         : number  (1-based current page)
+     - pageSize     : number
+     - csrfToken    : string  (passed through for future htmx fragments)
+     - cspNonce     : string
+
+   Each row links to `/:locale/me/applications/:id` for the timeline.
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Lamaran Saya',
+    intro: 'Daftar lamaran yang Anda kirim, diurutkan dari yang terbaru.',
+    empty: 'Anda belum mengirim lamaran apa pun.',
+    browse: 'Telusuri lowongan',
+    th: {
+      ref: 'Nomor Referensi',
+      job: 'Posisi',
+      location: 'Lokasi',
+      stage: 'Tahap',
+      appliedAt: 'Tanggal Lamar'
+    },
+    pagination: {
+      prev: 'Sebelumnya',
+      next: 'Berikutnya',
+      page: 'Halaman'
+    },
+    stageLabels: {
+      Applied: 'Diterima',
+      Screening: 'Penyaringan',
+      Interview: 'Wawancara',
+      Offer: 'Penawaran',
+      Hired: 'Diterima Bekerja',
+      Rejected: 'Ditolak',
+      Withdrawn: 'Dibatalkan'
+    }
+  },
+  en: {
+    title: 'My Applications',
+    intro: 'Applications you have submitted, newest first.',
+    empty: 'You have not submitted any applications yet.',
+    browse: 'Browse jobs',
+    th: {
+      ref: 'Reference',
+      job: 'Position',
+      location: 'Location',
+      stage: 'Stage',
+      appliedAt: 'Applied On'
+    },
+    pagination: {
+      prev: 'Previous',
+      next: 'Next',
+      page: 'Page'
+    },
+    stageLabels: {
+      Applied: 'Applied',
+      Screening: 'Screening',
+      Interview: 'Interview',
+      Offer: 'Offer',
+      Hired: 'Hired',
+      Rejected: 'Rejected',
+      Withdrawn: 'Withdrawn'
+    }
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-applications-list">
+  <h1>{{ t.title }}</h1>
+  <p class="lede">{{ t.intro }}</p>
+
+  {% if total == 0 %}
+    <p class="empty-state" role="status">{{ t.empty }}</p>
+    <p>
+      <a class="btn btn-primary" href="/{{ locale }}/jobs">{{ t.browse }}</a>
+    </p>
+  {% else %}
+    <table class="applications-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t.th.ref }}</th>
+          <th scope="col">{{ t.th.job }}</th>
+          <th scope="col">{{ t.th.location }}</th>
+          <th scope="col">{{ t.th.stage }}</th>
+          <th scope="col">{{ t.th.appliedAt }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr data-application-id="{{ row.id }}">
+            <td>
+              <a href="/{{ locale }}/me/applications/{{ row.id }}">
+                {{ row.referenceNo }}
+              </a>
+            </td>
+            <td>
+              <a href="/{{ locale }}/jobs/{{ row.jobSlug }}">
+                {{ row.jobTitle }}
+              </a>
+            </td>
+            <td>{{ row.jobLocation }}</td>
+            <td>
+              <span class="stage-badge stage-badge--{{ row.stage | lower }}">
+                {{ t.stageLabels[row.stage] or row.stage }}
+              </span>
+            </td>
+            <td>
+              <time datetime="{{ row.appliedAt.toISOString() }}">
+                {{ row.appliedAt.toISOString().slice(0, 10) }}
+              </time>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {# Pagination — only emitted when total exceeds one page. #}
+    {% set lastPage = (total / pageSize) | round(0, 'ceil') %}
+    {% if lastPage > 1 %}
+      <nav class="pagination" aria-label="Pagination">
+        {% if page > 1 %}
+          <a rel="prev" href="/{{ locale }}/me/applications?page={{ page - 1 }}">
+            {{ t.pagination.prev }}
+          </a>
+        {% endif %}
+        <span>{{ t.pagination.page }} {{ page }} / {{ lastPage }}</span>
+        {% if page < lastPage %}
+          <a rel="next" href="/{{ locale }}/me/applications?page={{ page + 1 }}">
+            {{ t.pagination.next }}
+          </a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

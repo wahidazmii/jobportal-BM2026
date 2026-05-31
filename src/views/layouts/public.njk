@@ -1,0 +1,48 @@
+{# Public layout for unauthenticated pages (Design §4.1).
+   Minimal scaffold for now — full header/footer/locale switch is wired in
+   Phase 8 (i18n) and the polish passes that follow. The `cspNonce` from the
+   security-headers helper is exposed so any inline <script> tags can opt in.
+
+   LCP optimisations (task 56.1, Design §4.3, §20.2 — Req 2.10):
+     - <link rel="preload"> for the main stylesheet (critical path CSS).
+     - <link rel="preconnect"> for hCaptcha origins so the TLS handshake
+       is resolved before the captcha widget is needed.
+     - htmx and Alpine.js are loaded with `defer` so they never block
+       the initial render / LCP element.
+#}
+<!doctype html>
+<html lang="{{ locale or 'id' }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}PT Buana Megah Career{% endblock %}</title>
+    {% if cspNonce %}<meta name="csp-nonce" content="{{ cspNonce }}">{% endif %}
+
+    {# ── LCP: preload main stylesheet so the browser fetches it ASAP ── #}
+    <link rel="preload" as="style" href="/assets/css/app.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    {# ── LCP: warm up hCaptcha origins (used on register / login / contact) ── #}
+    <link rel="preconnect" href="https://hcaptcha.com">
+    <link rel="preconnect" href="https://newassets.hcaptcha.com">
+
+    {% block head %}{% endblock %}
+  </head>
+  <body class="public-layout">
+    <header class="site-header">
+      <a href="/{{ locale or 'id' }}/" class="brand">PT Buana Megah</a>
+    </header>
+
+    <main id="main">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <small>&copy; PT Buana Megah</small>
+    </footer>
+
+    {# ── LCP: defer htmx + Alpine so they never block first paint ── #}
+    <script src="/assets/js/htmx.min.js" defer{% if cspNonce %} nonce="{{ cspNonce }}"{% endif %}></script>
+    <script src="/assets/js/alpine.min.js" defer{% if cspNonce %} nonce="{{ cspNonce }}"{% endif %}></script>
+  </body>
+</html>

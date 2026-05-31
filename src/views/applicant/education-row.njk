@@ -1,0 +1,176 @@
+{# Single education row fragment (task 16.2).
+   Validates: Requirements 4.2
+
+   Renders one read-only entry with edit/remove controls. The parent
+   `applicant/education-section.njk` includes this template inside the
+   list loop. The `editingId` local can be set to surface the inline
+   edit form for a specific row when the parent re-renders the section
+   after a GET .../edit request.
+
+   Inputs:
+     - locale     : 'id' | 'en'
+     - csrfToken  : string
+     - edu        : EducationRecord
+     - editingId  : number | null   (when set and equal to edu.id, the
+                                     row renders the inline edit form
+                                     instead of the read-only summary)
+     - editForm   : { values, errors, generalError } | null
+                    (editing context — set by the route layer)
+     - t          : translation table from the parent (already resolved)
+#}
+
+{% if not t %}
+  {# Defensive default — when this partial is rendered as a standalone
+     fragment by the routes layer (e.g. after a successful update) we
+     resolve `t` here too. #}
+  {% set tr = {
+    id: {
+      edit: 'Ubah', cancel: 'Batal', remove: 'Hapus',
+      institution: 'Institusi', degree: 'Gelar', field: 'Bidang Studi',
+      startDate: 'Tanggal Mulai', endDate: 'Tanggal Selesai',
+      inProgress: 'Masih berjalan', gpa: 'IPK (0,00 - 4,00)',
+      submit: 'Simpan', confirmRemove: 'Hapus entri pendidikan ini?'
+    },
+    en: {
+      edit: 'Edit', cancel: 'Cancel', remove: 'Remove',
+      institution: 'Institution', degree: 'Degree', field: 'Field of study',
+      startDate: 'Start date', endDate: 'End date',
+      inProgress: 'In progress', gpa: 'GPA (0.00 - 4.00)',
+      submit: 'Save', confirmRemove: 'Remove this education entry?'
+    }
+  } %}
+  {% set t = tr[locale] or tr.id %}
+{% endif %}
+
+<li class="profile-education__row" id="education-row-{{ edu.id }}" data-id="{{ edu.id }}">
+  {% if editingId and editingId == edu.id %}
+    {% set form = editForm or { values: edu, errors: {}, generalError: null } %}
+    <form
+      class="profile-education__edit"
+      method="post"
+      action="/{{ locale }}/me/profile/education/{{ edu.id }}"
+      hx-post="/{{ locale }}/me/profile/education/{{ edu.id }}"
+      hx-target="#education-section"
+      hx-swap="outerHTML"
+      hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+      novalidate
+    >
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      {% if form.generalError %}
+        <div class="alert alert-error" role="alert">{{ form.generalError }}</div>
+      {% endif %}
+
+      <div class="field">
+        <label for="edit-{{ edu.id }}-institution">{{ t.institution }}</label>
+        <input type="text" id="edit-{{ edu.id }}-institution" name="institution"
+               required maxlength="150"
+               value="{{ form.values.institution | default('') }}">
+        {% if form.errors.institution %}
+          <ul class="field-errors">{% for m in form.errors.institution %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ edu.id }}-degree">{{ t.degree }}</label>
+        <input type="text" id="edit-{{ edu.id }}-degree" name="degree"
+               required maxlength="100"
+               value="{{ form.values.degree | default('') }}">
+        {% if form.errors.degree %}
+          <ul class="field-errors">{% for m in form.errors.degree %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ edu.id }}-field">{{ t.field }}</label>
+        <input type="text" id="edit-{{ edu.id }}-field" name="field"
+               required maxlength="100"
+               value="{{ form.values.field | default('') }}">
+        {% if form.errors.field %}
+          <ul class="field-errors">{% for m in form.errors.field %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ edu.id }}-start_date">{{ t.startDate }}</label>
+        <input type="date" id="edit-{{ edu.id }}-start_date" name="start_date"
+               required value="{{ form.values.start_date | default('') }}">
+        {% if form.errors.start_date %}
+          <ul class="field-errors">{% for m in form.errors.start_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ edu.id }}-end_date">{{ t.endDate }}</label>
+        <input type="date" id="edit-{{ edu.id }}-end_date" name="end_date"
+               value="{{ form.values.end_date | default('') }}">
+        {% if form.errors.end_date %}
+          <ul class="field-errors">{% for m in form.errors.end_date %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field field-checkbox">
+        <label>
+          <input type="checkbox" name="in_progress" value="on"
+                 {% if form.values.in_progress %}checked{% endif %}>
+          {{ t.inProgress }}
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="edit-{{ edu.id }}-gpa">{{ t.gpa }}</label>
+        <input type="number" step="0.01" min="0" max="4"
+                 id="edit-{{ edu.id }}-gpa" name="gpa"
+                 value="{{ form.values.gpa | default('') }}">
+        {% if form.errors.gpa %}
+          <ul class="field-errors">{% for m in form.errors.gpa %}<li>{{ m }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="field-actions">
+        <button type="submit" class="btn btn-primary">{{ t.submit }}</button>
+        <a class="btn btn-link"
+           href="/{{ locale }}/me/profile/education"
+           hx-get="/{{ locale }}/me/profile/education"
+           hx-target="#education-section"
+           hx-swap="outerHTML">{{ t.cancel }}</a>
+      </div>
+    </form>
+  {% else %}
+    <article class="profile-education__view">
+      <h3 class="profile-education__institution">{{ edu.institution }}</h3>
+      <p class="profile-education__degree">{{ edu.degree }} — {{ edu.field }}</p>
+      <p class="profile-education__dates">
+        {{ edu.start_date }}
+        {% if edu.in_progress %}
+          — {{ t.inProgress }}
+        {% elif edu.end_date %}
+          — {{ edu.end_date }}
+        {% endif %}
+      </p>
+      {% if edu.gpa is not none %}
+        <p class="profile-education__gpa">{{ t.gpa }}: {{ edu.gpa }}</p>
+      {% endif %}
+
+      <div class="profile-education__actions">
+        <a class="btn btn-link"
+           href="/{{ locale }}/me/profile/education/{{ edu.id }}/edit"
+           hx-get="/{{ locale }}/me/profile/education/{{ edu.id }}/edit"
+           hx-target="#education-section"
+           hx-swap="outerHTML">{{ t.edit }}</a>
+
+        <form method="post"
+              action="/{{ locale }}/me/profile/education/{{ edu.id }}/delete"
+              hx-post="/{{ locale }}/me/profile/education/{{ edu.id }}/delete"
+              hx-target="#education-section"
+              hx-swap="outerHTML"
+              hx-confirm="{{ t.confirmRemove }}"
+              hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+              class="profile-education__delete">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <button type="submit" class="btn btn-danger">{{ t.remove }}</button>
+        </form>
+      </div>
+    </article>
+  {% endif %}
+</li>

@@ -1,0 +1,39 @@
+{# 429 Too Many Requests page (task 9.2 — registration rate limit).
+   Validates: Requirement 14.5 — surfaces a Retry-After hint to the user.
+
+   Inputs:
+     - locale         : 'id' | 'en'
+     - retryAfterSec  : number (seconds the client should wait)
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Terlalu Banyak Permintaan',
+    body: 'Anda telah mengirim terlalu banyak pendaftaran dari koneksi ini. Silakan coba lagi nanti.',
+    retry: 'Coba lagi dalam',
+    seconds: 'detik',
+    backLink: 'Kembali ke beranda'
+  },
+  en: {
+    title: 'Too Many Requests',
+    body: 'You have submitted too many registrations from this connection. Please try again later.',
+    retry: 'Retry in',
+    seconds: 'seconds',
+    backLink: 'Back to home'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="auth-error">
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.body }}</p>
+  {% if retryAfterSec %}
+    <p>{{ t.retry }} {{ retryAfterSec }} {{ t.seconds }}.</p>
+  {% endif %}
+  <p><a href="/{{ locale }}/">{{ t.backLink }}</a></p>
+</section>
+{% endblock %}

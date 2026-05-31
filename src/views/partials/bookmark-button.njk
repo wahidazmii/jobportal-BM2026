@@ -1,0 +1,58 @@
+{# Bookmark toggle button (task 28.1).
+   Validates: Requirements 6.4
+   Design: §4.2 (htmx interaction patterns)
+
+   Render-state-only partial. The same fragment is returned by the
+   `POST /api/bookmarks/toggle` endpoint so the button swaps in place
+   via `hx-swap="outerHTML"`.
+
+   Inputs:
+     - jobId        : number               — Job_Posting.id
+     - bookmarked   : boolean              — current state
+     - csrfToken    : string               — 43-char base64url session
+                                             CSRF token (rendered into
+                                             hx-headers)
+     - locale       : 'id' | 'en' | undef  — used for the icon's
+                                             `aria-label` only
+   Behaviour:
+     - `aria-pressed` reflects the toggle state for assistive tech.
+     - `hx-vals` is JSON, NOT a query string, so the POST sends a
+       JSON body (`Content-Type: application/json` is added by htmx
+       when `hx-ext='json-enc'` is present; without that ext, htmx
+       URL-encodes the values, which Fastify's `formbody` parser
+       handles fine — both shapes are accepted by the route).
+     - `hx-headers` carries the X-CSRF-Token mirror of the cookie so
+       the server-side double-submit check (Design §8.6) passes.
+     - `hx-swap="outerHTML"` replaces this very `<button>` with the
+       fragment the server returns for the new state.
+#}
+{% set bmTr = {
+  id: {
+    add: 'Tambahkan ke favorit',
+    remove: 'Hapus dari favorit'
+  },
+  en: {
+    add: 'Bookmark this job',
+    remove: 'Remove bookmark'
+  }
+} %}
+{% set bmT = bmTr[locale] or bmTr.id %}
+
+<button
+  id="bookmark-btn-{{ jobId }}"
+  type="button"
+  class="bookmark-btn{% if bookmarked %} bookmark-btn--on{% else %} bookmark-btn--off{% endif %}"
+  aria-pressed="{% if bookmarked %}true{% else %}false{% endif %}"
+  aria-label="{% if bookmarked %}{{ bmT.remove }}{% else %}{{ bmT.add }}{% endif %}"
+  data-job-id="{{ jobId }}"
+  hx-post="/api/bookmarks/toggle"
+  hx-vals='{"jobId": {{ jobId }}}'
+  hx-headers='{"X-CSRF-Token": "{{ csrfToken }}"}'
+  hx-swap="outerHTML"
+>
+  {% if bookmarked %}
+    <span aria-hidden="true" class="bookmark-icon bookmark-icon--filled">★</span>
+  {% else %}
+    <span aria-hidden="true" class="bookmark-icon bookmark-icon--outline">☆</span>
+  {% endif %}
+</button>

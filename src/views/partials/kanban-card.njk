@@ -1,0 +1,78 @@
+{# Single kanban application card.
+   Spec    : tasks.md task 29.1 (markup hooks for 29.2's drag handler)
+   Design  : §4.2 (htmx kanban pattern)
+   Validates: Requirement 10.1, 10.2 (hook surface only — wiring lands in 29.2)
+
+   Inputs:
+     - card.id                 : applications.id (used in the htmx URL)
+     - card.uuid               : stable external id (audit links)
+     - card.reference_no       : public-facing reference, e.g. APP-2026-000123
+     - card.applicant_user_id  : authenticated user id (for HR audit hover)
+     - card.applicant_name     : display name resolved by kanban-repo
+     - card.stage              : current Pipeline_Stage
+     - card.applied_at         : Date (rendered as YYYY-MM-DD)
+     - canWrite                : when false, drag is disabled and the card
+                                 is rendered without the htmx attributes so
+                                 a Department_Head observing the board
+                                 cannot smuggle a stage change through the
+                                 endpoint.
+
+   Why a `<li>`:
+     The column body in `kanban.njk` is a `<ul data-sortable>` so
+     SortableJS (vendored at /assets/js/sortable.min.js) can target the
+     children directly. SortableJS expects sibling LIs that share a
+     parent — using DIVs would force a custom `draggable` configuration.
+
+   htmx attributes:
+     The card carries the request shape that task 29.2 will consume:
+       - `hx-post="/api/applications/{{ card.id }}/stage"` — the stage
+         transition endpoint that 29.2 implements.
+       - `hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'` — the
+         double-submit token plumbed through the layout's meta tag.
+       - `hx-vals` is set by the SortableJS `onEnd` hook (in 29.2)
+         from the destination column's `data-stage`. We do NOT
+         hard-code the destination here because the same card markup
+         is reused in every column.
+       - `hx-swap="outerHTML"` so the server response (a fresh
+         `kanban-card.njk` render) replaces this exact LI in place.
+     Per the task brief this template only LAYS DOWN the hooks; the
+     actual JS handler that calls `htmx.ajax('POST', ...)` ships in
+     task 29.2 alongside the route.
+
+   Stage badge color:
+     Mirrors the legend used in `views/admin/jobs/index.njk` so HR
+     reads the same color for the same stage across every admin
+     surface.
+#}
+<li
+  class="kanban-card bg-white border border-slate-200 rounded shadow-sm p-3 mb-2 cursor-move text-sm
+    {% if not canWrite %}cursor-default opacity-90{% endif %}"
+  data-application-id="{{ card.id }}"
+  data-application-uuid="{{ card.uuid }}"
+  data-stage="{{ card.stage }}"
+  {% if canWrite %}
+  hx-post="/api/applications/{{ card.id }}/stage"
+  hx-headers='{"X-CSRF-Token":"{{ csrfToken }}"}'
+  hx-swap="outerHTML"
+  {% endif %}
+>
+  <div class="flex items-start justify-between gap-2 mb-1">
+    <span class="font-mono text-xs text-slate-500">{{ card.reference_no }}</span>
+    <span class="inline-block px-1.5 py-0.5 rounded text-xs
+      {% if card.stage == 'Applied' %}bg-slate-100 text-slate-700
+      {% elif card.stage == 'Screening' %}bg-sky-100 text-sky-800
+      {% elif card.stage == 'Interview' %}bg-indigo-100 text-indigo-800
+      {% elif card.stage == 'Offer' %}bg-amber-100 text-amber-800
+      {% elif card.stage == 'Hired' %}bg-emerald-100 text-emerald-800
+      {% elif card.stage == 'Rejected' %}bg-rose-100 text-rose-800
+      {% else %}bg-slate-100 text-slate-700{% endif %}">
+      {{ card.stage }}
+    </span>
+  </div>
+  <div class="font-medium text-slate-900 truncate">{{ card.applicant_name }}</div>
+  <div class="text-xs text-slate-500 mt-1">
+    {% if card.applied_at %}
+      Applied {{ card.applied_at.toISOString().slice(0,10) }}
+    {% endif %}
+  </div>
+</li>

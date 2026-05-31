@@ -1,0 +1,178 @@
+{# Applicant application detail (task 27.1).
+   Validates: Requirements 5.7
+   Design: §6 Applicant_Area
+
+   Renders the page at `GET /:locale/me/applications/:id`. Shows the
+   application header (reference number, current stage, link back to
+   list), a chronological timeline of stage transitions from
+   `application_stage_history`, and the applicant-visible HR notes
+   from `application_notes` filtered by `visible_to_applicant=1`.
+
+   The route layer is responsible for the visibility filter — this
+   template just iterates `notes`.
+
+   Inputs:
+     - locale     : 'id' | 'en'
+     - app        : ApplicationDetail (see queries.ts)
+     - csrfToken  : string  (for future htmx — withdraw button etc.)
+     - cspNonce   : string
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Detail Lamaran',
+    backToList: 'Kembali ke daftar lamaran',
+    refLabel: 'Nomor Referensi',
+    jobLabel: 'Posisi',
+    locationLabel: 'Lokasi',
+    stageLabel: 'Tahap saat ini',
+    appliedAtLabel: 'Dilamar pada',
+    timelineTitle: 'Riwayat Tahap',
+    notesTitle: 'Catatan untuk Anda',
+    notesEmpty: 'Belum ada catatan dari tim rekrutmen.',
+    timelineEmpty: 'Belum ada riwayat tahap.',
+    transitionLabel: 'Pindah ke',
+    initialLabel: 'Lamaran dikirim',
+    bySystem: 'Sistem',
+    stageLabels: {
+      Applied: 'Diterima',
+      Screening: 'Penyaringan',
+      Interview: 'Wawancara',
+      Offer: 'Penawaran',
+      Hired: 'Diterima Bekerja',
+      Rejected: 'Ditolak',
+      Withdrawn: 'Dibatalkan'
+    }
+  },
+  en: {
+    title: 'Application Detail',
+    backToList: 'Back to applications',
+    refLabel: 'Reference',
+    jobLabel: 'Position',
+    locationLabel: 'Location',
+    stageLabel: 'Current stage',
+    appliedAtLabel: 'Submitted on',
+    timelineTitle: 'Stage Timeline',
+    notesTitle: 'Notes for you',
+    notesEmpty: 'No notes from the recruiting team yet.',
+    timelineEmpty: 'No timeline entries yet.',
+    transitionLabel: 'Moved to',
+    initialLabel: 'Application submitted',
+    bySystem: 'System',
+    stageLabels: {
+      Applied: 'Applied',
+      Screening: 'Screening',
+      Interview: 'Interview',
+      Offer: 'Offer',
+      Hired: 'Hired',
+      Rejected: 'Rejected',
+      Withdrawn: 'Withdrawn'
+    }
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} {{ app.referenceNo }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-application-detail">
+  <p class="back-link">
+    <a href="/{{ locale }}/me/applications">&larr; {{ t.backToList }}</a>
+  </p>
+
+  <header class="application-header">
+    <h1>{{ t.title }}</h1>
+    <dl class="application-summary">
+      <dt>{{ t.refLabel }}</dt>
+      <dd>{{ app.referenceNo }}</dd>
+
+      <dt>{{ t.jobLabel }}</dt>
+      <dd>
+        <a href="/{{ locale }}/jobs/{{ app.jobSlug }}">{{ app.jobTitle }}</a>
+      </dd>
+
+      <dt>{{ t.locationLabel }}</dt>
+      <dd>{{ app.jobLocation }}</dd>
+
+      <dt>{{ t.stageLabel }}</dt>
+      <dd>
+        <span class="stage-badge stage-badge--{{ app.stage | lower }}">
+          {{ t.stageLabels[app.stage] or app.stage }}
+        </span>
+      </dd>
+
+      <dt>{{ t.appliedAtLabel }}</dt>
+      <dd>
+        <time datetime="{{ app.appliedAt.toISOString() }}">
+          {{ app.appliedAt.toISOString().slice(0, 10) }}
+        </time>
+      </dd>
+    </dl>
+  </header>
+
+  <section class="application-timeline" aria-labelledby="timeline-heading">
+    <h2 id="timeline-heading">{{ t.timelineTitle }}</h2>
+    {% if app.stageHistory and app.stageHistory.length > 0 %}
+      <ol class="timeline">
+        {% for entry in app.stageHistory %}
+          <li class="timeline__entry" data-history-id="{{ entry.id }}">
+            <time
+              class="timeline__time"
+              datetime="{{ entry.changedAt.toISOString() }}">
+              {{ entry.changedAt.toISOString().slice(0, 10) }}
+            </time>
+            <div class="timeline__body">
+              {% if entry.prevStage %}
+                <strong class="timeline__transition">
+                  {{ t.transitionLabel }}
+                  {{ t.stageLabels[entry.newStage] or entry.newStage }}
+                </strong>
+                <span class="timeline__from">
+                  ({{ t.stageLabels[entry.prevStage] or entry.prevStage }}
+                  &rarr;
+                  {{ t.stageLabels[entry.newStage] or entry.newStage }})
+                </span>
+              {% else %}
+                <strong class="timeline__transition">
+                  {{ t.initialLabel }}
+                </strong>
+              {% endif %}
+              <span class="timeline__actor">
+                {% if entry.changedBy %}
+                  #{{ entry.changedBy }}
+                {% else %}
+                  {{ t.bySystem }}
+                {% endif %}
+              </span>
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="empty-state" role="status">{{ t.timelineEmpty }}</p>
+    {% endif %}
+  </section>
+
+  <section class="application-notes" aria-labelledby="notes-heading">
+    <h2 id="notes-heading">{{ t.notesTitle }}</h2>
+    {% if app.notes and app.notes.length > 0 %}
+      <ul class="notes-list">
+        {% for note in app.notes %}
+          <li class="notes-list__item" data-note-id="{{ note.id }}">
+            <p class="notes-list__meta">
+              <strong>{{ note.authorName }}</strong>
+              <time datetime="{{ note.createdAt.toISOString() }}">
+                {{ note.createdAt.toISOString().slice(0, 10) }}
+              </time>
+            </p>
+            <p class="notes-list__body">{{ note.body }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-state" role="status">{{ t.notesEmpty }}</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

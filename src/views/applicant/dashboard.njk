@@ -1,0 +1,113 @@
+{# Applicant dashboard (task 18.1).
+   Validates: Requirements 4.9, 4.10
+   Design: §6 Applicant_Area
+
+   Renders the landing page at `GET /:locale/me`. The page has two
+   visual states driven by `percentage`:
+
+     - `< 80`  → embed the shared `partials/profile-completeness-banner.njk`
+                 partial, which lists the missing slots and a CTA to the
+                 profile editor (Req 4.10).
+     - `>= 80` → show the "profile complete" success card and direct the
+                 user to job search.
+
+   The view receives:
+     - locale       : 'id' | 'en'
+     - percentage   : number   (0..100, integer)
+     - missingFields: string[] (slot keys from MANDATORY_SLOTS)
+     - csrfToken    : string   (43-char base64url; passed through for
+                                future htmx fragments embedded here)
+     - cspNonce     : string   (for any inline <script> tags)
+
+   i18n strings are inlined (id/en) following the pattern already used
+   by `views/applicant/profile.njk`. Task 48.1 will migrate every
+   template to the shared i18n catalog.
+#}
+{% extends "layouts/public.njk" %}
+
+{% set tr = {
+  id: {
+    title: 'Dasbor Pelamar',
+    welcome: 'Selamat datang kembali',
+    completeTitle: 'Profil Anda sudah lengkap',
+    completeIntro: 'Anda sudah memenuhi syarat minimum untuk melamar lowongan. Telusuri pekerjaan terbaru di bawah ini.',
+    completePercent: 'Kelengkapan profil',
+    completeCtaJobs: 'Lihat lowongan',
+    completeCtaProfile: 'Perbarui profil',
+    quickLinksTitle: 'Akses cepat',
+    quickLinkProfile: 'Profil saya',
+    quickLinkEducation: 'Riwayat pendidikan',
+    quickLinkExperience: 'Pengalaman kerja',
+    quickLinkJobs: 'Lowongan tersedia'
+  },
+  en: {
+    title: 'Applicant Dashboard',
+    welcome: 'Welcome back',
+    completeTitle: 'Your profile is complete',
+    completeIntro: 'You meet the minimum requirements to apply for jobs. Browse the latest openings below.',
+    completePercent: 'Profile completion',
+    completeCtaJobs: 'View jobs',
+    completeCtaProfile: 'Update profile',
+    quickLinksTitle: 'Quick links',
+    quickLinkProfile: 'My profile',
+    quickLinkEducation: 'Education history',
+    quickLinkExperience: 'Work experience',
+    quickLinkJobs: 'Open positions'
+  }
+} %}
+{% set t = tr[locale] or tr.id %}
+
+{% block title %}{{ t.title }} | PT Buana Megah{% endblock %}
+
+{% block content %}
+<section class="applicant-dashboard">
+  <h1>{{ t.title }}</h1>
+  <p class="lede">{{ t.welcome }}.</p>
+
+  {% if percentage < 80 %}
+
+    {# Below threshold (Req 4.10). Defer to the shared banner partial,
+       which already encodes the per-slot label translations. #}
+    {% include "partials/profile-completeness-banner.njk" %}
+
+  {% else %}
+
+    {# At or above threshold. Show the success card. #}
+    <article
+      class="profile-complete-card"
+      role="status"
+      aria-live="polite"
+      data-completeness-percent="{{ percentage }}"
+    >
+      <h2 class="profile-complete-card__title">{{ t.completeTitle }}</h2>
+      <p class="profile-complete-card__intro">{{ t.completeIntro }}</p>
+      <p class="profile-complete-card__progress">
+        {{ t.completePercent }}:
+        <strong>{{ percentage }}%</strong>
+      </p>
+      <progress
+        class="profile-complete-card__bar"
+        max="100"
+        value="{{ percentage }}"
+        aria-label="{{ t.completePercent }}"
+      >{{ percentage }}%</progress>
+
+      <p class="profile-complete-card__actions">
+        <a class="btn btn-primary" href="/{{ locale }}/jobs">{{ t.completeCtaJobs }}</a>
+        <a class="btn btn-link" href="/{{ locale }}/me/profile">{{ t.completeCtaProfile }}</a>
+      </p>
+    </article>
+
+  {% endif %}
+
+  <nav class="applicant-dashboard__quicklinks" aria-label="{{ t.quickLinksTitle }}">
+    <h2>{{ t.quickLinksTitle }}</h2>
+    <ul>
+      <li><a href="/{{ locale }}/me/profile">{{ t.quickLinkProfile }}</a></li>
+      <li><a href="/{{ locale }}/me/profile/education">{{ t.quickLinkEducation }}</a></li>
+      <li><a href="/{{ locale }}/me/profile/experience">{{ t.quickLinkExperience }}</a></li>
+      <li><a href="/{{ locale }}/jobs">{{ t.quickLinkJobs }}</a></li>
+    </ul>
+  </nav>
+</section>
+{% endblock %}

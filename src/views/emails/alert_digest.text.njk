@@ -1,0 +1,10 @@
+Halo {{ applicant.name }},
+
+{% if count == 1 %}Ada 1 lowongan baru yang cocok dengan Job Alert Anda.{% else %}Ada {{ count }} lowongan baru yang cocok dengan Job Alert Anda.{% endif %}
+
+{% for job in jobs %}- {{ job.title }} ({{ job.location }})
+  {{ job.url }}
+{% endfor %}
+
+Anda menerima email ini karena memiliki Job Alert aktif di portal karier PT Buana Megah.
+Kelola atau hapus Job Alert Anda di halaman Job Alert pada akun Anda.
