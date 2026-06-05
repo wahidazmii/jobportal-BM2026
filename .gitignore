@@ -1,5 +1,4 @@
 node_modules/
-artifacts/
 *.log
 .DS_Store
 .idea/
@@ -7,5 +6,9 @@ artifacts/
 coverage/
 playwright-report/
 test-results/
-src/public/css/app.css
-src/public/js/sri-manifest.json
+
+# Build artifacts - track compiled output for deployment
+!artifacts/
+!artifacts/**
+!src/public/css/app.css
+!src/public/js/sri-manifest.json
