@@ -101,7 +101,7 @@ function createMigrationPool() {
     connectionLimit: 1,
     waitForConnections: true,
     timezone: 'Z',
-    namedPlaceholders: true,
+    namedPlaceholders: false,
     decimalNumbers: true,
   });
 }
