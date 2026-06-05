@@ -135,7 +135,7 @@ CREATE TABLE job_postings (
   KEY idx_job_status_pub (status, published_at),
   KEY idx_job_deadline   (application_deadline),
   KEY idx_job_dept       (department_id),
-  FULLTEXT KEY ft_job_search (search_text) WITH PARSER ngram,
+  FULLTEXT KEY ft_job_search (search_text),
   CONSTRAINT fk_job_dept
     FOREIGN KEY (department_id) REFERENCES departments(id),
   CONSTRAINT fk_job_creator
